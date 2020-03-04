@@ -73,4 +73,5 @@
     <string name="mic_paused">Mik ditangguhkan oleh OS, waktu rekaman kurang dari data yang direkam, silakan periksa apakah perangkat anda mendukung proses rekaman latar belakang atau memiliki kemampuan yang cukup untuk pengaturan yang dipilih</string>
     <string name="tile_start_recording">Mulai Merekam</string>
     <string name="tile_stop_recording">Berhenti Merekam</string>
+    <string name="encoding_optimization">Background encoding paused due to android Battery Optimization settings, please allow this application work in background</string>
 </resources>

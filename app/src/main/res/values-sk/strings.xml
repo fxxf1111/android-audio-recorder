@@ -75,4 +75,5 @@
     <string name="mic_paused">Prístup k mikrofónu bol pozastavený systémom. Čas nahrávania je dlhší ako dĺžka nahrávky. Uistite sa, že vaše zariadenie umožňuje nahrávanie zvuku na pozadí a je dostatočne výkonné na použitie zvolených nastavení.</string>
     <string name="tile_start_recording">Spustiť nahrávanie</string>
     <string name="tile_stop_recording">Zastaviť nahrávanie</string>
+    <string name="encoding_optimization">Background encoding paused due to android Battery Optimization settings, please allow this application work in background</string>
 </resources>

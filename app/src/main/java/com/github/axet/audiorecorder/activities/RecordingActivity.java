@@ -28,6 +28,7 @@ import android.telephony.TelephonyManager;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.KeyEvent;
+import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.Window;
@@ -35,6 +36,7 @@ import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import com.github.axet.androidlibrary.activities.AppCompatThemeActivity;
@@ -105,6 +107,7 @@ public class RecordingActivity extends AppCompatThemeActivity {
     ScreenReceiver screen;
 
     AudioApplication.RecordingStorage recording;
+    ProgressEncoding pe;
 
     RecordingReceiver receiver;
 
@@ -323,6 +326,52 @@ public class RecordingActivity extends AppCompatThemeActivity {
                     pausedByCall = false;
                     break;
             }
+        }
+    }
+
+    public class ProgressEncoding extends ProgressDialog {
+        public long pause;
+        public long resume;
+        public long msecPause; // encoding progress on pause
+        public long msecResume; // encoding progress on resume
+        LinearLayout view;
+        View warning;
+
+        public ProgressEncoding(Context context) {
+            super(context);
+            setMax(100);
+            setCancelable(false);
+            setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
+            setIndeterminate(false);
+            view = new LinearLayout(context);
+            view.setOrientation(LinearLayout.VERTICAL);
+        }
+
+        @Override
+        public void setView(View view) {
+            super.setView(this.view);
+            this.view.addView(view);
+        }
+
+        public void onPause(long cur) {
+            pause = System.currentTimeMillis();
+            msecPause = cur;
+        }
+
+        public void onResume(long cur) {
+            resume = System.currentTimeMillis();
+            msecResume = cur;
+        }
+
+        public void setProgress(long cur, long total) {
+            long diff = resume - pause;
+            long diffrec = msecResume - msecPause;
+            if (pause != 0 && diff > 0 && diffrec < diff && warning == null) {
+                LayoutInflater inflater = LayoutInflater.from(getContext());
+                warning = inflater.inflate(R.layout.optimization, view, false);
+                view.addView(warning);
+            }
+            super.setProgress((int) (cur * 100 / total));
         }
     }
 
@@ -649,6 +698,11 @@ public class RecordingActivity extends AppCompatThemeActivity {
             if (editSample != -1)
                 edit(true, false);
         }
+
+        if (pe != null) {
+            RawSamples.Info info = recording.getInfo();
+            pe.onResume(encoder.getCurrent() / info.hz / info.channels);
+        }
     }
 
     @Override
@@ -658,6 +712,10 @@ public class RecordingActivity extends AppCompatThemeActivity {
         recording.updateBufferSize(true);
         editPlay(false);
         pitch.stop();
+        if (pe != null) {
+            RawSamples.Info info = recording.getInfo();
+            pe.onPause(encoder.getCurrent() / info.hz / info.channels);
+        }
     }
 
     void stopRecording(String status) {
@@ -1030,32 +1088,28 @@ public class RecordingActivity extends AppCompatThemeActivity {
     void encoding(final FileEncoder encoder, final OnFlyEncoding fly, final Runnable last) {
         RecordingService.startService(this, Storage.getName(this, fly.targetUri), recording.thread != null, encoder != null, duration);
 
-        final ProgressDialog d = new ProgressDialog(this);
-        d.setTitle(R.string.encoding_title);
-        d.setMessage(".../" + Storage.getName(this, recording.targetUri));
-        d.setMax(100);
-        d.setCancelable(false);
-        d.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
-        d.setIndeterminate(false);
-        d.show();
+        pe = new ProgressEncoding(this);
+        pe.setTitle(R.string.encoding_title);
+        pe.setMessage(".../" + Storage.getName(this, recording.targetUri));
+        pe.show();
 
         encoder.run(new Runnable() {
             @Override
             public void run() {
-                d.setProgress(encoder.getProgress());
+                pe.setProgress(encoder.getCurrent(), encoder.getTotal());
             }
         }, new Runnable() {
             @Override
             public void run() { // success
                 Storage.delete(encoder.in); // delete raw recording
                 last.run();
-                d.cancel();
+                pe.cancel();
             }
         }, new Runnable() {
             @Override
             public void run() { // or error
                 Storage.delete(RecordingActivity.this, fly.targetUri); // fly has fd, delete target manually
-                d.cancel();
+                pe.cancel();
                 Error(encoder.getException());
             }
         });
