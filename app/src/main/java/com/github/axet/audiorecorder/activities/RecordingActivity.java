@@ -41,6 +41,7 @@ import android.widget.TextView;
 
 import com.github.axet.androidlibrary.activities.AppCompatThemeActivity;
 import com.github.axet.androidlibrary.animations.MarginBottomAnimation;
+import com.github.axet.androidlibrary.app.AlarmManager;
 import com.github.axet.androidlibrary.services.FileProvider;
 import com.github.axet.androidlibrary.services.StorageProvider;
 import com.github.axet.androidlibrary.sound.AudioTrack;
@@ -364,8 +365,8 @@ public class RecordingActivity extends AppCompatThemeActivity {
         }
 
         public void setProgress(long cur, long total) {
-            long diff = resume - pause;
-            long diffrec = msecResume - msecPause;
+            long diff = resume - pause; // real time
+            long diffrec = msecResume - msecPause; // encoding time
             if (pause != 0 && diff > 0 && diffrec < diff && warning == null) {
                 LayoutInflater inflater = LayoutInflater.from(getContext());
                 warning = inflater.inflate(R.layout.optimization, view, false);
@@ -701,7 +702,7 @@ public class RecordingActivity extends AppCompatThemeActivity {
 
         if (pe != null) {
             RawSamples.Info info = recording.getInfo();
-            pe.onResume(encoder.getCurrent() / info.hz / info.channels);
+            pe.onResume(encoder.getCurrent() * 1000 / info.hz / info.channels);
         }
     }
 
@@ -714,7 +715,7 @@ public class RecordingActivity extends AppCompatThemeActivity {
         pitch.stop();
         if (pe != null) {
             RawSamples.Info info = recording.getInfo();
-            pe.onPause(encoder.getCurrent() / info.hz / info.channels);
+            pe.onPause(encoder.getCurrent() * 1000 / info.hz / info.channels);
         }
     }
 
