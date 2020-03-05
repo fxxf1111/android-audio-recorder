@@ -41,7 +41,6 @@ import android.widget.TextView;
 
 import com.github.axet.androidlibrary.activities.AppCompatThemeActivity;
 import com.github.axet.androidlibrary.animations.MarginBottomAnimation;
-import com.github.axet.androidlibrary.app.AlarmManager;
 import com.github.axet.androidlibrary.services.FileProvider;
 import com.github.axet.androidlibrary.services.StorageProvider;
 import com.github.axet.androidlibrary.sound.AudioTrack;
@@ -65,6 +64,7 @@ import com.github.axet.audiorecorder.app.AudioApplication;
 import com.github.axet.audiorecorder.app.Storage;
 import com.github.axet.audiorecorder.services.BluetoothReceiver;
 import com.github.axet.audiorecorder.services.RecordingService;
+import com.github.axet.wget.SpeedInfo;
 
 import java.io.File;
 import java.nio.ShortBuffer;
@@ -335,8 +335,14 @@ public class RecordingActivity extends AppCompatThemeActivity {
         public long resume;
         public long msecPause; // encoding progress on pause
         public long msecResume; // encoding progress on resume
+        SpeedInfo current;
+        SpeedInfo foreground;
+        SpeedInfo background;
         LinearLayout view;
+        View speed;
+        TextView text;
         View warning;
+        View slow;
 
         public ProgressEncoding(Context context) {
             super(context);
@@ -344,14 +350,17 @@ public class RecordingActivity extends AppCompatThemeActivity {
             setCancelable(false);
             setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
             setIndeterminate(false);
-            view = new LinearLayout(context);
-            view.setOrientation(LinearLayout.VERTICAL);
         }
 
         @Override
-        public void setView(View view) {
-            super.setView(this.view);
-            this.view.addView(view);
+        public void setView(View v) {
+            view = new LinearLayout(getContext());
+            view.setOrientation(LinearLayout.VERTICAL);
+            super.setView(view);
+            view.addView(v);
+            LayoutInflater inflater = LayoutInflater.from(getContext());
+            speed = inflater.inflate(R.layout.encoding_speed, view);
+            text = (TextView) speed.findViewById(R.id.speed);
         }
 
         public void onPause(long cur) {
@@ -365,13 +374,44 @@ public class RecordingActivity extends AppCompatThemeActivity {
         }
 
         public void setProgress(long cur, long total) {
-            long diff = resume - pause; // real time
-            long diffrec = msecResume - msecPause; // encoding time
-            if (pause != 0 && diff > 0 && diffrec < diff && warning == null) {
-                LayoutInflater inflater = LayoutInflater.from(getContext());
-                warning = inflater.inflate(R.layout.optimization, view, false);
-                view.addView(warning);
+            if (current == null) {
+                current = new SpeedInfo();
+                current.start(cur);
+            } else {
+                current.step(cur);
             }
+            if (pause == 0 && resume == 0) { // foreground
+                if (foreground == null) {
+                    foreground = new SpeedInfo();
+                    foreground.start(cur);
+                } else {
+                    foreground.step(cur);
+                }
+            }
+            if (pause != 0 && resume == 0) { // background
+                if (background == null) {
+                    background = new SpeedInfo();
+                    background.start(cur);
+                } else {
+                    background.step(cur);
+                }
+            }
+            if (pause != 0 && resume != 0) { // resumed from background
+                long diffreal = resume - pause; // real time
+                long diffenc = msecResume - msecPause; // encoding time
+                if (diffreal > 0 && diffenc < diffreal && warning == null) { // paused
+                    LayoutInflater inflater = LayoutInflater.from(getContext());
+                    warning = inflater.inflate(R.layout.optimization, view);
+                }
+                if (diffreal > 0 && diffenc >= diffreal && slow == null && foreground != null && background != null && foreground.getAverageSpeed() / background.getAverageSpeed() > 1 && slow == null) {
+                    LayoutInflater inflater = LayoutInflater.from(getContext());
+                    slow = inflater.inflate(R.layout.slow, view);
+                }
+                pause = 0;
+                resume = 0;
+                background = null;
+            }
+            text.setText(AudioApplication.formatSize(getContext(), current.getAverageSpeed()) + getString(R.string.per_second));
             super.setProgress((int) (cur * 100 / total));
         }
     }

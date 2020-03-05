@@ -76,4 +76,5 @@
     <string name="tile_start_recording">Spustiť nahrávanie</string>
     <string name="tile_stop_recording">Zastaviť nahrávanie</string>
     <string name="encoding_optimization">Background encoding paused due to android Battery Optimization settings, please allow this application work in background</string>
+    <string name="per_second">/s</string>
 </resources>
