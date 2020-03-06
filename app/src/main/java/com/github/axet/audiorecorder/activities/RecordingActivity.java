@@ -327,7 +327,23 @@ public class RecordingActivity extends AppCompatThemeActivity {
         }
     }
 
-    public class ProgressEncoding extends ProgressDialog {
+    public static class SpeedInfo extends com.github.axet.wget.SpeedInfo {
+        public Sample getLast() {
+            if (samples.size() == 0)
+                return null;
+            return samples.get(samples.size() - 1);
+        }
+
+        public long getDuration() { // get duration of last segment [start,last]
+            if (start == null || getRowSamples() < 2)
+                return 0;
+            return getLast().now - start.now;
+        }
+    }
+
+    public static class ProgressEncoding extends ProgressDialog {
+        public static int DURATION = 5000;
+
         public long pause;
         public long resume;
         public long samplesPause; // encoding progress on pause
@@ -364,11 +380,19 @@ public class RecordingActivity extends AppCompatThemeActivity {
         public void onPause(long cur) {
             pause = System.currentTimeMillis();
             samplesPause = cur;
+            resume = 0;
+            samplesResume = 0;
+            if (background == null)
+                background = new SpeedInfo();
+            background.start(cur);
         }
 
         public void onResume(long cur) {
             resume = System.currentTimeMillis();
             samplesResume = cur;
+            if (foreground == null)
+                foreground = new SpeedInfo();
+            foreground.start(cur);
         }
 
         public void setProgress(long cur, long total) {
@@ -386,14 +410,8 @@ public class RecordingActivity extends AppCompatThemeActivity {
                     foreground.step(cur);
                 }
             }
-            if (pause != 0 && resume == 0) { // background
-                if (background == null) {
-                    background = new SpeedInfo();
-                    background.start(cur);
-                } else {
-                    background.step(cur);
-                }
-            }
+            if (pause != 0 && resume == 0) // background
+                background.step(cur);
             if (pause != 0 && resume != 0) { // resumed from background
                 long diffreal = resume - pause; // real time
                 long diffenc = (samplesResume - samplesPause) * 1000 / info.hz / info.channels; // encoding time
@@ -401,15 +419,17 @@ public class RecordingActivity extends AppCompatThemeActivity {
                     LayoutInflater inflater = LayoutInflater.from(getContext());
                     warning = inflater.inflate(R.layout.optimization, view);
                 }
-                if (diffreal > 0 && diffenc >= diffreal && warning == null && foreground != null && background != null && foreground.getAverageSpeed() / background.getAverageSpeed() > 1) {
-                    LayoutInflater inflater = LayoutInflater.from(getContext());
-                    warning = inflater.inflate(R.layout.slow, view);
+                if (diffreal > 0 && diffenc >= diffreal && warning == null && foreground != null && background != null) {
+                    if (foreground.getDuration() > DURATION && background.getDuration() > DURATION) {
+                        long r = foreground.getAverageSpeed() / background.getAverageSpeed();
+                        if (r > 1) { // slowed down by twice or more
+                            LayoutInflater inflater = LayoutInflater.from(getContext());
+                            warning = inflater.inflate(R.layout.slow, view);
+                        }
+                    }
                 }
-                pause = 0;
-                resume = 0;
-                background = null;
             }
-            text.setText(AudioApplication.formatSize(getContext(), current.getAverageSpeed() * info.bps / Byte.SIZE) + getString(R.string.per_second));
+            text.setText(AudioApplication.formatSize(getContext(), current.getAverageSpeed() * info.bps / Byte.SIZE) + getContext().getString(R.string.per_second));
             super.setProgress((int) (cur * 100 / total));
         }
     }
