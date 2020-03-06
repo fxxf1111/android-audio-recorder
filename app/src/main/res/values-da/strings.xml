@@ -46,4 +46,6 @@
     <string name="tile_start_recording">Start optagelse</string>
     <string name="tile_stop_recording">Stop optagelse</string>
     <string name="pref_application">App</string>
+    <string name="encoding_optimization">Background encoding paused due to android Battery Optimization settings, please allow this application work in background</string>
+    <string name="per_second">/s</string>
 </resources>

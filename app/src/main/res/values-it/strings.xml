@@ -73,4 +73,6 @@
     <string name="mic_paused">Mic paused by OS, recording time is less then data recorded, check if you device supports background recording or it is fast enougth for selected settings</string>
     <string name="tile_start_recording">Start Recording</string>
     <string name="tile_stop_recording">Stop Recording</string>
+    <string name="encoding_optimization">Background encoding paused due to android Battery Optimization settings, please allow this application work in background</string>
+    <string name="per_second">/s</string>
 </resources>

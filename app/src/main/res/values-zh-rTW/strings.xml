@@ -73,4 +73,6 @@
     <string name="mic_paused">麥克風被作業系統暫停，錄音時間少於已錄製數據，請確認您的裝置是否支援背景錄音，或支援選取的設定。</string>
     <string name="tile_start_recording">開始錄音</string>
     <string name="tile_stop_recording">停止錄音</string>
+    <string name="encoding_optimization">Background encoding paused due to android Battery Optimization settings, please allow this application work in background</string>
+    <string name="per_second">/s</string>
 </resources>

@@ -24,6 +24,7 @@ import android.telephony.TelephonyManager;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.KeyEvent;
+import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.Window;
@@ -31,6 +32,7 @@ import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import com.github.axet.androidlibrary.activities.AppCompatThemeActivity;
@@ -59,6 +61,7 @@ import com.github.axet.audiorecorder.app.AudioApplication;
 import com.github.axet.audiorecorder.app.Storage;
 import com.github.axet.audiorecorder.services.BluetoothReceiver;
 import com.github.axet.audiorecorder.services.RecordingService;
+import com.github.axet.wget.SpeedInfo;
 
 import java.io.File;
 import java.nio.ShortBuffer;
@@ -102,6 +105,7 @@ public class RecordingActivity extends AppCompatThemeActivity {
     ScreenReceiver screen;
 
     AudioApplication.RecordingStorage recording;
+    ProgressEncoding pe;
 
     RecordingReceiver receiver;
 
@@ -320,6 +324,93 @@ public class RecordingActivity extends AppCompatThemeActivity {
                     pausedByCall = false;
                     break;
             }
+        }
+    }
+
+    public class ProgressEncoding extends ProgressDialog {
+        public long pause;
+        public long resume;
+        public long samplesPause; // encoding progress on pause
+        public long samplesResume; // encoding progress on resume
+        SpeedInfo current;
+        SpeedInfo foreground;
+        SpeedInfo background;
+        LinearLayout view;
+        View speed;
+        TextView text;
+        View warning;
+        RawSamples.Info info;
+
+        public ProgressEncoding(Context context, RawSamples.Info info) {
+            super(context);
+            setMax(100);
+            setCancelable(false);
+            setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
+            setIndeterminate(false);
+            this.info = info;
+        }
+
+        @Override
+        public void setView(View v) {
+            view = new LinearLayout(getContext());
+            view.setOrientation(LinearLayout.VERTICAL);
+            super.setView(view);
+            view.addView(v);
+            LayoutInflater inflater = LayoutInflater.from(getContext());
+            speed = inflater.inflate(R.layout.encoding_speed, view);
+            text = (TextView) speed.findViewById(R.id.speed);
+        }
+
+        public void onPause(long cur) {
+            pause = System.currentTimeMillis();
+            samplesPause = cur;
+        }
+
+        public void onResume(long cur) {
+            resume = System.currentTimeMillis();
+            samplesResume = cur;
+        }
+
+        public void setProgress(long cur, long total) {
+            if (current == null) {
+                current = new SpeedInfo();
+                current.start(cur);
+            } else {
+                current.step(cur);
+            }
+            if (pause == 0 && resume == 0) { // foreground
+                if (foreground == null) {
+                    foreground = new SpeedInfo();
+                    foreground.start(cur);
+                } else {
+                    foreground.step(cur);
+                }
+            }
+            if (pause != 0 && resume == 0) { // background
+                if (background == null) {
+                    background = new SpeedInfo();
+                    background.start(cur);
+                } else {
+                    background.step(cur);
+                }
+            }
+            if (pause != 0 && resume != 0) { // resumed from background
+                long diffreal = resume - pause; // real time
+                long diffenc = (samplesResume - samplesPause) * 1000 / info.hz / info.channels; // encoding time
+                if (diffreal > 0 && diffenc < diffreal && warning == null) { // paused
+                    LayoutInflater inflater = LayoutInflater.from(getContext());
+                    warning = inflater.inflate(R.layout.optimization, view);
+                }
+                if (diffreal > 0 && diffenc >= diffreal && warning == null && foreground != null && background != null && foreground.getAverageSpeed() / background.getAverageSpeed() > 1) {
+                    LayoutInflater inflater = LayoutInflater.from(getContext());
+                    warning = inflater.inflate(R.layout.slow, view);
+                }
+                pause = 0;
+                resume = 0;
+                background = null;
+            }
+            text.setText(AudioApplication.formatSize(getContext(), current.getAverageSpeed() * info.bps / Byte.SIZE) + getString(R.string.per_second));
+            super.setProgress((int) (cur * 100 / total));
         }
     }
 
@@ -646,6 +737,9 @@ public class RecordingActivity extends AppCompatThemeActivity {
             if (editSample != -1)
                 edit(true, false);
         }
+
+        if (pe != null)
+            pe.onResume(encoder.getCurrent());
     }
 
     @Override
@@ -655,6 +749,8 @@ public class RecordingActivity extends AppCompatThemeActivity {
         recording.updateBufferSize(true);
         editPlay(false);
         pitch.stop();
+        if (pe != null)
+            pe.onPause(encoder.getCurrent());
     }
 
     void stopRecording(String status) {
@@ -1027,32 +1123,28 @@ public class RecordingActivity extends AppCompatThemeActivity {
     void encoding(final FileEncoder encoder, final OnFlyEncoding fly, final Runnable last) {
         RecordingService.startService(this, Storage.getName(this, fly.targetUri), recording.thread != null, encoder != null, duration);
 
-        final ProgressDialog d = new ProgressDialog(this);
-        d.setTitle(R.string.encoding_title);
-        d.setMessage(".../" + Storage.getName(this, recording.targetUri));
-        d.setMax(100);
-        d.setCancelable(false);
-        d.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
-        d.setIndeterminate(false);
-        d.show();
+        pe = new ProgressEncoding(this, recording.getInfo());
+        pe.setTitle(R.string.encoding_title);
+        pe.setMessage(".../" + Storage.getName(this, recording.targetUri));
+        pe.show();
 
         encoder.run(new Runnable() {
             @Override
             public void run() {
-                d.setProgress(encoder.getProgress());
+                pe.setProgress(encoder.getCurrent(), encoder.getTotal());
             }
         }, new Runnable() {
             @Override
             public void run() { // success
                 Storage.delete(encoder.in); // delete raw recording
                 last.run();
-                d.cancel();
+                pe.cancel();
             }
         }, new Runnable() {
             @Override
             public void run() { // or error
                 Storage.delete(RecordingActivity.this, fly.targetUri); // fly has fd, delete target manually
-                d.cancel();
+                pe.cancel();
                 Error(encoder.getException());
             }
         });

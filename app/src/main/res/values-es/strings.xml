@@ -73,4 +73,6 @@
     <string name="mic_paused">Micro pausado por el sistema, el tiempo de grabación es menor que la fecha grabada, revise si su dispositivo soporta grabación en segundo plano o ajuste la configuración actual.</string>
     <string name="tile_start_recording">Start Recording</string>
     <string name="tile_stop_recording">Stop Recording</string>
+    <string name="encoding_optimization">Background encoding paused due to android Battery Optimization settings, please allow this application work in background</string>
+    <string name="per_second">/s</string>
 </resources>
