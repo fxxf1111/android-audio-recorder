@@ -342,7 +342,6 @@ public class RecordingActivity extends AppCompatThemeActivity {
         View speed;
         TextView text;
         View warning;
-        View slow;
         RawSamples.Info info;
 
         public ProgressEncoding(Context context, RawSamples.Info info) {
@@ -405,9 +404,9 @@ public class RecordingActivity extends AppCompatThemeActivity {
                     LayoutInflater inflater = LayoutInflater.from(getContext());
                     warning = inflater.inflate(R.layout.optimization, view);
                 }
-                if (diffreal > 0 && diffenc >= diffreal && slow == null && foreground != null && background != null && foreground.getAverageSpeed() / background.getAverageSpeed() > 1 && slow == null) {
+                if (diffreal > 0 && diffenc >= diffreal && warning == null && foreground != null && background != null && foreground.getAverageSpeed() / background.getAverageSpeed() > 1 && slow == null) {
                     LayoutInflater inflater = LayoutInflater.from(getContext());
-                    slow = inflater.inflate(R.layout.slow, view);
+                    warning = inflater.inflate(R.layout.slow, view);
                 }
                 pause = 0;
                 resume = 0;
