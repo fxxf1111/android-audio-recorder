@@ -404,7 +404,7 @@ public class RecordingActivity extends AppCompatThemeActivity {
                     LayoutInflater inflater = LayoutInflater.from(getContext());
                     warning = inflater.inflate(R.layout.optimization, view);
                 }
-                if (diffreal > 0 && diffenc >= diffreal && warning == null && foreground != null && background != null && foreground.getAverageSpeed() / background.getAverageSpeed() > 1 && slow == null) {
+                if (diffreal > 0 && diffenc >= diffreal && warning == null && foreground != null && background != null && foreground.getAverageSpeed() / background.getAverageSpeed() > 1) {
                     LayoutInflater inflater = LayoutInflater.from(getContext());
                     warning = inflater.inflate(R.layout.slow, view);
                 }
