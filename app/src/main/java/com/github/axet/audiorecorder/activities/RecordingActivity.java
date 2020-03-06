@@ -333,8 +333,8 @@ public class RecordingActivity extends AppCompatThemeActivity {
     public class ProgressEncoding extends ProgressDialog {
         public long pause;
         public long resume;
-        public long msecPause; // encoding progress on pause
-        public long msecResume; // encoding progress on resume
+        public long samplesPause; // encoding progress on pause
+        public long samplesResume; // encoding progress on resume
         SpeedInfo current;
         SpeedInfo foreground;
         SpeedInfo background;
@@ -343,13 +343,15 @@ public class RecordingActivity extends AppCompatThemeActivity {
         TextView text;
         View warning;
         View slow;
+        RawSamples.Info info;
 
-        public ProgressEncoding(Context context) {
+        public ProgressEncoding(Context context, RawSamples.Info info) {
             super(context);
             setMax(100);
             setCancelable(false);
             setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
             setIndeterminate(false);
+            this.info = info;
         }
 
         @Override
@@ -365,12 +367,12 @@ public class RecordingActivity extends AppCompatThemeActivity {
 
         public void onPause(long cur) {
             pause = System.currentTimeMillis();
-            msecPause = cur;
+            samplesPause = cur;
         }
 
         public void onResume(long cur) {
             resume = System.currentTimeMillis();
-            msecResume = cur;
+            samplesResume = cur;
         }
 
         public void setProgress(long cur, long total) {
@@ -398,7 +400,7 @@ public class RecordingActivity extends AppCompatThemeActivity {
             }
             if (pause != 0 && resume != 0) { // resumed from background
                 long diffreal = resume - pause; // real time
-                long diffenc = msecResume - msecPause; // encoding time
+                long diffenc = (samplesResume - samplesPause) * 1000 / info.hz / info.channels; // encoding time
                 if (diffreal > 0 && diffenc < diffreal && warning == null) { // paused
                     LayoutInflater inflater = LayoutInflater.from(getContext());
                     warning = inflater.inflate(R.layout.optimization, view);
@@ -411,7 +413,7 @@ public class RecordingActivity extends AppCompatThemeActivity {
                 resume = 0;
                 background = null;
             }
-            text.setText(AudioApplication.formatSize(getContext(), current.getAverageSpeed()) + getString(R.string.per_second));
+            text.setText(AudioApplication.formatSize(getContext(), current.getAverageSpeed() * info.bps / Byte.SIZE) + getString(R.string.per_second));
             super.setProgress((int) (cur * 100 / total));
         }
     }
@@ -740,10 +742,8 @@ public class RecordingActivity extends AppCompatThemeActivity {
                 edit(true, false);
         }
 
-        if (pe != null) {
-            RawSamples.Info info = recording.getInfo();
-            pe.onResume(encoder.getCurrent() * 1000 / info.hz / info.channels);
-        }
+        if (pe != null)
+            pe.onResume(encoder.getCurrent());
     }
 
     @Override
@@ -753,10 +753,8 @@ public class RecordingActivity extends AppCompatThemeActivity {
         recording.updateBufferSize(true);
         editPlay(false);
         pitch.stop();
-        if (pe != null) {
-            RawSamples.Info info = recording.getInfo();
-            pe.onPause(encoder.getCurrent() * 1000 / info.hz / info.channels);
-        }
+        if (pe != null)
+            pe.onPause(encoder.getCurrent());
     }
 
     void stopRecording(String status) {
@@ -1129,7 +1127,7 @@ public class RecordingActivity extends AppCompatThemeActivity {
     void encoding(final FileEncoder encoder, final OnFlyEncoding fly, final Runnable last) {
         RecordingService.startService(this, Storage.getName(this, fly.targetUri), recording.thread != null, encoder != null, duration);
 
-        pe = new ProgressEncoding(this);
+        pe = new ProgressEncoding(this, recording.getInfo());
         pe.setTitle(R.string.encoding_title);
         pe.setMessage(".../" + Storage.getName(this, recording.targetUri));
         pe.show();
