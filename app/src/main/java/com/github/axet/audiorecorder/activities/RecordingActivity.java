@@ -3,7 +3,6 @@ package com.github.axet.audiorecorder.activities;
 import android.Manifest;
 import android.app.Activity;
 import android.app.ProgressDialog;
-import android.content.ComponentName;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.DialogInterface;
@@ -18,9 +17,6 @@ import android.os.Handler;
 import android.os.Message;
 import android.preference.PreferenceManager;
 import android.provider.MediaStore;
-import android.support.v4.media.session.MediaButtonReceiver;
-import android.support.v4.media.session.MediaSessionCompat;
-import android.support.v4.media.session.PlaybackStateCompat;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.view.WindowCallbackWrapper;
 import android.telephony.PhoneStateListener;
@@ -44,6 +40,7 @@ import com.github.axet.androidlibrary.animations.MarginBottomAnimation;
 import com.github.axet.androidlibrary.services.FileProvider;
 import com.github.axet.androidlibrary.services.StorageProvider;
 import com.github.axet.androidlibrary.sound.AudioTrack;
+import com.github.axet.androidlibrary.sound.Headset;
 import com.github.axet.androidlibrary.widgets.ErrorDialog;
 import com.github.axet.androidlibrary.widgets.OpenFileDialog;
 import com.github.axet.androidlibrary.widgets.PopupWindowCompat;
@@ -88,7 +85,7 @@ public class RecordingActivity extends AppCompatThemeActivity {
 
     PhoneStateChangeListener pscl = new PhoneStateChangeListener();
     FileEncoder encoder;
-    MediaSessionCompat msc;
+    Headset headset;
     Intent recordSoundIntent = null;
 
     boolean start = true; // do we need to start recording immidiatly?
@@ -297,7 +294,7 @@ public class RecordingActivity extends AppCompatThemeActivity {
                 done.performClick();
                 return;
             }
-            MediaButtonReceiver.handleIntent(msc, intent);
+            Headset.handleIntent(headset, intent);
         }
     }
 
@@ -1169,10 +1166,12 @@ public class RecordingActivity extends AppCompatThemeActivity {
 
     public void headset(boolean b, final boolean recording) {
         if (b) {
-            if (msc == null) {
-                Log.d(TAG, "headset mediabutton on");
-                msc = new MediaSessionCompat(this, TAG, new ComponentName(this, RecordingActivity.RecordingReceiver.class), null);
-                msc.setCallback(new MediaSessionCompat.Callback() {
+            if (headset == null) {
+                headset = new Headset() {
+                    {
+                        actions = Headset.ACTIONS_MAIN;
+                    }
+
                     @Override
                     public void onPlay() {
                         pauseButton();
@@ -1187,21 +1186,14 @@ public class RecordingActivity extends AppCompatThemeActivity {
                     public void onStop() {
                         pauseButton();
                     }
-                });
-                msc.setFlags(MediaSessionCompat.FLAG_HANDLES_MEDIA_BUTTONS | MediaSessionCompat.FLAG_HANDLES_QUEUE_COMMANDS | MediaSessionCompat.FLAG_HANDLES_TRANSPORT_CONTROLS);
-                msc.setActive(true);
-                msc.setPlaybackState(new PlaybackStateCompat.Builder().setState(PlaybackStateCompat.STATE_PLAYING, 0, 1).build()); // bug, when after device reboots we have to set playing state to 'playing' to make mediabutton work
+                };
+                headset.create(this, RecordingActivity.RecordingReceiver.class);
             }
-            PlaybackStateCompat.Builder builder = new PlaybackStateCompat.Builder()
-                    .setActions(PlaybackStateCompat.ACTION_PLAY | PlaybackStateCompat.ACTION_PAUSE | PlaybackStateCompat.ACTION_PLAY_PAUSE |
-                            PlaybackStateCompat.ACTION_STOP)
-                    .setState(recording ? PlaybackStateCompat.STATE_PLAYING : PlaybackStateCompat.STATE_PAUSED, 0, 1);
-            msc.setPlaybackState(builder.build());
+            headset.setState(recording);
         } else {
-            if (msc != null) {
-                Log.d(TAG, "headset mediabutton off");
-                msc.release();
-                msc = null;
+            if (headset != null) {
+                headset.close();
+                headset = null;
             }
         }
     }
