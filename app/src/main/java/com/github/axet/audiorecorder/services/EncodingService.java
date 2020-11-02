@@ -205,15 +205,6 @@ public class EncodingService extends PersistentService {
                 throw new RuntimeException(e);
             }
         }
-
-        public ArrayList<String> asList() {
-            ArrayList<String> list = new ArrayList<>();
-            for (File key : keySet()) {
-                EncodingStorage.Info k = get(key);
-                list.add(k.targetUri.toString());
-            }
-            return list;
-        }
     }
 
     public EncodingService() {
@@ -248,7 +239,9 @@ public class EncodingService extends PersistentService {
                     @SuppressLint("RestrictedApi")
                     public Notification build(Intent intent) {
                         String targetFile = intent.getStringExtra("targetFile");
-                        int progress = intent.getIntExtra("progress", 0);
+                        long cur = intent.getLongExtra("cur", -1);
+                        long total = intent.getLongExtra("total", -1);
+                        long progress = cur * 100 / total;
 
                         PendingIntent main;
 
@@ -270,6 +263,7 @@ public class EncodingService extends PersistentService {
                         builder.setTheme(AudioApplication.getTheme(context, R.style.RecThemeLight, R.style.RecThemeDark))
                                 .setChannel(AudioApplication.from(context).channelStatus)
                                 .setImageViewTint(R.id.icon_circle, builder.getThemeColor(R.attr.colorButtonNormal))
+                                .setTextViewText(R.id.app_name_text, title)
                                 .setTitle(title)
                                 .setText(text)
                                 .setWhen(icon.notification)
@@ -384,6 +378,8 @@ public class EncodingService extends PersistentService {
 
     void encoding(final FileEncoder encoder, final OnFlyEncoding fly, final RawSamples.Info info, final Runnable done) {
         encoder.run(new Runnable() {
+            long last = 0;
+
             @Override
             public void run() {
                 String json;
@@ -392,14 +388,20 @@ public class EncodingService extends PersistentService {
                 } catch (JSONException e1) {
                     throw new RuntimeException(e1);
                 }
+                long cur = encoder.getCurrent();
+                long total = encoder.getTotal();
+                long now = System.currentTimeMillis();
                 Intent intent = new Intent(UPDATE_ENCODING)
-                        .putExtra("cur", encoder.getCurrent())
-                        .putExtra("total", encoder.getTotal())
+                        .putExtra("cur", cur)
+                        .putExtra("total", total)
                         .putExtra("info", json)
                         .putExtra("targetUri", fly.targetUri)
                         .putExtra("targetFile", Storage.getName(EncodingService.this, fly.targetUri));
-                sendBroadcast(intent);
-                optimization.icon.updateIcon(intent);
+                if (last + 1000 < now) {
+                    last = now;
+                    sendBroadcast(intent);
+                    optimization.icon.updateIcon(intent);
+                }
             }
         }, new Runnable() {
             @Override
