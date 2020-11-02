@@ -386,8 +386,16 @@ public class EncodingService extends PersistentService {
         encoder.run(new Runnable() {
             @Override
             public void run() {
+                String json;
+                try {
+                    json = info.save().toString();
+                } catch (JSONException e1) {
+                    throw new RuntimeException(e1);
+                }
                 Intent intent = new Intent(UPDATE_ENCODING)
-                        .putExtra("progress", encoder.getProgress())
+                        .putExtra("cur", encoder.getCurrent())
+                        .putExtra("total", encoder.getTotal())
+                        .putExtra("info", json)
                         .putExtra("targetUri", fly.targetUri)
                         .putExtra("targetFile", Storage.getName(EncodingService.this, fly.targetUri));
                 sendBroadcast(intent);
@@ -396,10 +404,18 @@ public class EncodingService extends PersistentService {
         }, new Runnable() {
             @Override
             public void run() { // success
+                String json;
+                try {
+                    json = info.save().toString();
+                } catch (JSONException e1) {
+                    throw new RuntimeException(e1);
+                }
                 Storage.delete(encoder.in); // delete raw recording
                 Storage.delete(EncodingStorage.jsonFile(encoder.in)); // delete json file
                 sendBroadcast(new Intent(UPDATE_ENCODING)
-                        .putExtra("progress", 100)
+                        .putExtra("cur", encoder.getCurrent())
+                        .putExtra("total", encoder.getTotal())
+                        .putExtra("info", json)
                         .putExtra("targetUri", fly.targetUri)
                 );
                 done.run();

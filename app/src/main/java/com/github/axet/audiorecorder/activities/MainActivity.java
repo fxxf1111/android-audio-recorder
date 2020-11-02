@@ -22,11 +22,13 @@ import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
+import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -49,7 +51,6 @@ import com.github.axet.audiorecorder.services.RecordingService;
 import org.json.JSONException;
 
 import java.io.File;
-import java.util.ArrayList;
 
 public class MainActivity extends AppCompatThemeActivity {
     public final static String TAG = MainActivity.class.getSimpleName();
@@ -72,11 +73,119 @@ public class MainActivity extends AppCompatThemeActivity {
         context.startActivity(i);
     }
 
+    public static class SpeedInfo extends com.github.axet.wget.SpeedInfo {
+        public Sample getLast() {
+            if (samples.size() == 0)
+                return null;
+            return samples.get(samples.size() - 1);
+        }
+
+        public long getDuration() { // get duration of last segment [start,last]
+            if (start == null || getRowSamples() < 2)
+                return 0;
+            return getLast().now - start.now;
+        }
+    }
+
+    public static class ProgressEncoding extends ProgressDialog {
+        public static int DURATION = 5000;
+
+        public long pause;
+        public long resume;
+        public long samplesPause; // encoding progress on pause
+        public long samplesResume; // encoding progress on resume
+        SpeedInfo current;
+        SpeedInfo foreground;
+        SpeedInfo background;
+        LinearLayout view;
+        View speed;
+        TextView text;
+        View warning;
+        RawSamples.Info info;
+
+        public ProgressEncoding(Context context, RawSamples.Info info) {
+            super(context);
+            setMax(100);
+            setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
+            setIndeterminate(false);
+            this.info = info;
+        }
+
+        @Override
+        public void setView(View v) {
+            view = new LinearLayout(getContext());
+            view.setOrientation(LinearLayout.VERTICAL);
+            super.setView(view);
+            view.addView(v);
+            LayoutInflater inflater = LayoutInflater.from(getContext());
+            speed = inflater.inflate(R.layout.encoding_speed, view);
+            text = (TextView) speed.findViewById(R.id.speed);
+        }
+
+        public void onPause(long cur) {
+            pause = System.currentTimeMillis();
+            samplesPause = cur;
+            resume = 0;
+            samplesResume = 0;
+            if (background == null)
+                background = new SpeedInfo();
+            background.start(cur);
+        }
+
+        public void onResume(long cur) {
+            resume = System.currentTimeMillis();
+            samplesResume = cur;
+            if (foreground == null)
+                foreground = new SpeedInfo();
+            foreground.start(cur);
+        }
+
+        public void setProgress(long cur, long total) {
+            if (current == null) {
+                current = new SpeedInfo();
+                current.start(cur);
+            } else {
+                current.step(cur);
+            }
+            if (pause == 0 && resume == 0) { // foreground
+                if (foreground == null) {
+                    foreground = new SpeedInfo();
+                    foreground.start(cur);
+                } else {
+                    foreground.step(cur);
+                }
+            }
+            if (pause != 0 && resume == 0) // background
+                background.step(cur);
+            if (pause != 0 && resume != 0) { // resumed from background
+                long diffreal = resume - pause; // real time
+                long diffenc = (samplesResume - samplesPause) * 1000 / info.hz / info.channels; // encoding time
+                if (diffreal > 0 && diffenc < diffreal && warning == null) { // paused
+                    LayoutInflater inflater = LayoutInflater.from(getContext());
+                    warning = inflater.inflate(R.layout.optimization, view);
+                }
+                if (diffreal > 0 && diffenc >= diffreal && warning == null && foreground != null && background != null) {
+                    if (foreground.getDuration() > DURATION && background.getDuration() > DURATION) {
+                        long r = foreground.getAverageSpeed() / background.getAverageSpeed();
+                        if (r > 1) { // slowed down by twice or more
+                            LayoutInflater inflater = LayoutInflater.from(getContext());
+                            warning = inflater.inflate(R.layout.slow, view);
+                        }
+                    }
+                }
+            }
+            text.setText(AudioApplication.formatSize(getContext(), current.getAverageSpeed() * info.bps / Byte.SIZE) + getContext().getString(R.string.per_second));
+            super.setProgress((int) (cur * 100 / total));
+        }
+    }
+
     public class EncodingDialog extends BroadcastReceiver {
         Context context;
         Snackbar snackbar;
         IntentFilter filter = new IntentFilter();
-        ProgressDialog d;
+        ProgressEncoding d;
+        long cur;
+        long total;
 
         public EncodingDialog() {
             filter.addAction(EncodingService.UPDATE_ENCODING);
@@ -98,22 +207,29 @@ public class MainActivity extends AppCompatThemeActivity {
             if (a == null)
                 return;
             if (a.equals(EncodingService.UPDATE_ENCODING)) {
-                final int progress = intent.getIntExtra("progress", -1);
+                cur = intent.getLongExtra("cur", -1);
+                total = intent.getLongExtra("total", -1);
+                final long progress = cur * 100 / total;
                 final Uri targetUri = intent.getParcelableExtra("targetUri");
+                final RawSamples.Info info;
+                try {
+                    info = new RawSamples.Info(intent.getStringExtra("info"));
+                } catch (JSONException e) {
+                    throw new RuntimeException(e);
+                }
 
                 String p = " (" + progress + "%)";
 
-                if (d != null) {
-                    d.setProgress(progress);
-                }
+                if (d != null)
+                    d.setProgress(cur, total);
 
                 EncodingService.EncodingStorage storage = new EncodingService.EncodingStorage(new Storage(context));
                 String str = "";
                 for (File f : storage.keySet()) {
-                    EncodingService.EncodingStorage.Info info = storage.get(f);
-                    String name = Storage.getName(context, info.targetUri);
+                    EncodingService.EncodingStorage.Info n = storage.get(f);
+                    String name = Storage.getName(context, n.targetUri);
                     str += "- " + name;
-                    if (info.targetUri.equals(targetUri))
+                    if (n.targetUri.equals(targetUri))
                         str += p;
                     str += "\n";
                 }
@@ -126,14 +242,11 @@ public class MainActivity extends AppCompatThemeActivity {
                     snackbar.getView().setOnClickListener(new View.OnClickListener() {
                         @Override
                         public void onClick(View v) {
-                            d = new ProgressDialog(context);
+                            d = new ProgressEncoding(context, info);
                             d.setTitle(R.string.encoding_title);
                             d.setMessage(".../" + Storage.getName(context, targetUri));
-                            d.setMax(100);
-                            d.setProgress(progress);
-                            d.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
-                            d.setIndeterminate(false);
                             d.show();
+                            d.setProgress(cur, total);
                             EncodingService.startIfPending(context);
                         }
                     });
@@ -143,7 +256,7 @@ public class MainActivity extends AppCompatThemeActivity {
                     snackbar.show();
                 }
 
-                if (progress == 100) {
+                if (cur == total) {
                     recordings.load(false, null);
                     if (snackbar != null && snackbar.isShown()) {
                         snackbar.setDuration(Snackbar.LENGTH_SHORT);
@@ -166,6 +279,16 @@ public class MainActivity extends AppCompatThemeActivity {
                 Throwable e = (Throwable) intent.getSerializableExtra("e");
                 Error(in, info, e);
             }
+        }
+
+        public void onPause() {
+            if (d != null)
+                d.onPause(cur);
+        }
+
+        public void onResume() {
+            if (d != null)
+                d.onResume(cur);
         }
 
         public void Error(final File in, final RawSamples.Info info, Throwable e) {
@@ -354,9 +477,17 @@ public class MainActivity extends AppCompatThemeActivity {
     }
 
     @Override
+    protected void onPause() {
+        super.onPause();
+        encoding.onPause();
+    }
+
+    @Override
     protected void onResume() {
         super.onResume();
         Log.d(TAG, "onResume");
+
+        encoding.onResume();
 
         final SharedPreferences shared = PreferenceManager.getDefaultSharedPreferences(this);
 
