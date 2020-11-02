@@ -53,7 +53,7 @@ android {
 
 dependencies {
     testImplementation 'junit:junit:4.12'
-    implementation 'com.github.axet:android-audio-library:1.0.175' // implementation project(':android-audio-library')
+    implementation 'com.github.axet:android-audio-library:1.0.176' // implementation project(':android-audio-library')
     implementation ('com.github.axet:wget:1.6.1') { exclude group: 'org.json', module: 'json' }
     assets('com.google.android.exoplayer:exoplayer:2.7.3') { exclude group: 'com.android.support' }
 }

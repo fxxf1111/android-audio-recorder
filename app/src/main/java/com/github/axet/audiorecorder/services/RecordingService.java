@@ -19,8 +19,8 @@ import android.widget.RemoteViews;
 
 import com.github.axet.androidlibrary.app.AlarmManager;
 import com.github.axet.androidlibrary.app.ProximityShader;
-import com.github.axet.androidlibrary.services.PersistentService;
 import com.github.axet.androidlibrary.preferences.OptimizationPreferenceCompat;
+import com.github.axet.androidlibrary.services.PersistentService;
 import com.github.axet.androidlibrary.widgets.RemoteNotificationCompat;
 import com.github.axet.androidlibrary.widgets.RemoteViewsCompat;
 import com.github.axet.audiolibrary.app.Storage;
@@ -32,7 +32,8 @@ import com.github.axet.audiorecorder.app.AudioApplication;
 import java.io.File;
 
 /**
- * Sometimes RecordingActivity started twice when launched from lockscreen. We need service and move recording into Application object.
+ * Sometimes RecordingActivity started twice when launched from lockscreen.
+ * We need service and keep recording into Application object.
  */
 public class RecordingService extends PersistentService {
     public static final String TAG = RecordingService.class.getSimpleName();
@@ -49,16 +50,16 @@ public class RecordingService extends PersistentService {
 
     Storage storage; // for storage path
 
-    public static void startIfEnabled(Context context) {
+    public static void startIfEnabled(Context context) { // notification controls enabled?
         SharedPreferences shared = PreferenceManager.getDefaultSharedPreferences(context);
         if (!shared.getBoolean(AudioApplication.PREFERENCE_CONTROLS, false))
             return;
         start(context);
     }
 
-    public static void startIfPending(Context context) {
-        Storage st = new Storage(context);
-        if (st.recordingPending()) {
+    public static void startIfPending(Context context) { // if recording pending or controls enabled
+        Storage storage = new Storage(context);
+        if (storage.recordingPending()) {
             final SharedPreferences shared = PreferenceManager.getDefaultSharedPreferences(context);
             String f = shared.getString(AudioApplication.PREFERENCE_TARGET, "");
             String d;
@@ -73,21 +74,20 @@ public class RecordingService extends PersistentService {
                 File file = new File(f);
                 d = file.getName();
             }
-            startService(context, d, false, false, null);
+            startService(context, d, false, null);
             return;
         }
         startIfEnabled(context);
     }
 
-    public static void start(Context context) {
+    public static void start(Context context) { // start persistent icon service
         start(context, new Intent(context, RecordingService.class));
     }
 
-    public static void startService(Context context, String targetFile, boolean recording, boolean encoding, String duration) {
+    public static void startService(Context context, String targetFile, boolean recording, String duration) { // start recording / pause service
         start(context, new Intent(context, RecordingService.class)
                 .putExtra("targetFile", targetFile)
                 .putExtra("recording", recording)
-                .putExtra("encoding", encoding)
                 .putExtra("duration", duration)
         );
     }
@@ -137,7 +137,7 @@ public class RecordingService extends PersistentService {
                     public Notification build(Intent intent) {
                         String targetFile = intent.getStringExtra("targetFile");
                         boolean recording = intent.getBooleanExtra("recording", false);
-                        boolean encoding = intent.getBooleanExtra("encoding", false);
+                        boolean encoding = false;
                         String duration = intent.getStringExtra("duration");
 
                         PendingIntent main;
@@ -146,7 +146,7 @@ public class RecordingService extends PersistentService {
 
                         String title;
                         String text;
-                        if (targetFile == null) {
+                        if (targetFile == null) {  // buildPersistentIcon();
                             title = getString(R.string.app_name);
                             Uri f = storage.getStoragePath();
                             long free = Storage.getFree(context, f);
@@ -156,7 +156,7 @@ public class RecordingService extends PersistentService {
                             builder.setViewVisibility(R.id.notification_record, View.VISIBLE);
                             builder.setViewVisibility(R.id.notification_pause, View.GONE);
                             main = PendingIntent.getActivity(context, 0, new Intent(context, MainActivity.class), PendingIntent.FLAG_UPDATE_CURRENT);
-                        } else {
+                        } else { // buildRecordingIcon();
                             if (recording)
                                 title = getString(R.string.recording_title);
                             else

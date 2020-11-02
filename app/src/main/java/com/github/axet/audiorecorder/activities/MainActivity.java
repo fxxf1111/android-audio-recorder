@@ -1,9 +1,12 @@
 package com.github.axet.audiorecorder.activities;
 
 import android.app.KeyguardManager;
+import android.app.ProgressDialog;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.res.Configuration;
 import android.net.Uri;
@@ -11,6 +14,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
 import android.support.design.widget.FloatingActionButton;
+import android.support.design.widget.Snackbar;
 import android.support.v4.view.MenuItemCompat;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.widget.DividerItemDecoration;
@@ -26,17 +30,26 @@ import android.view.WindowManager;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.github.axet.androidlibrary.services.StorageProvider;
-import com.github.axet.androidlibrary.preferences.AboutPreferenceCompat;
 import com.github.axet.androidlibrary.activities.AppCompatThemeActivity;
-import com.github.axet.androidlibrary.widgets.ErrorDialog;
+import com.github.axet.androidlibrary.preferences.AboutPreferenceCompat;
 import com.github.axet.androidlibrary.preferences.OptimizationPreferenceCompat;
+import com.github.axet.androidlibrary.services.StorageProvider;
+import com.github.axet.androidlibrary.widgets.ErrorDialog;
+import com.github.axet.androidlibrary.widgets.OpenFileDialog;
 import com.github.axet.androidlibrary.widgets.SearchView;
+import com.github.axet.audiolibrary.app.RawSamples;
+import com.github.axet.audiolibrary.encoders.FormatWAV;
 import com.github.axet.audiorecorder.R;
 import com.github.axet.audiorecorder.app.AudioApplication;
 import com.github.axet.audiorecorder.app.Recordings;
 import com.github.axet.audiorecorder.app.Storage;
+import com.github.axet.audiorecorder.services.EncodingService;
 import com.github.axet.audiorecorder.services.RecordingService;
+
+import org.json.JSONException;
+
+import java.io.File;
+import java.util.ArrayList;
 
 public class MainActivity extends AppCompatThemeActivity {
     public final static String TAG = MainActivity.class.getSimpleName();
@@ -50,12 +63,144 @@ public class MainActivity extends AppCompatThemeActivity {
     Storage storage;
 
     ScreenReceiver receiver;
+    EncodingDialog encoding;
 
     public static void startActivity(Context context) {
         Intent i = new Intent(context, MainActivity.class);
         i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         i.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
         context.startActivity(i);
+    }
+
+    public class EncodingDialog extends BroadcastReceiver {
+        Context context;
+        Snackbar snackbar;
+        IntentFilter filter = new IntentFilter();
+        ProgressDialog d;
+
+        public EncodingDialog() {
+            filter.addAction(EncodingService.UPDATE_ENCODING);
+            filter.addAction(EncodingService.ERROR);
+        }
+
+        public void registerReceiver(Context context) {
+            this.context = context;
+            context.registerReceiver(this, filter);
+        }
+
+        public void close() {
+            context.unregisterReceiver(this);
+        }
+
+        @Override
+        public void onReceive(final Context context, Intent intent) {
+            String a = intent.getAction();
+            if (a == null)
+                return;
+            if (a.equals(EncodingService.UPDATE_ENCODING)) {
+                final int progress = intent.getIntExtra("progress", -1);
+                final Uri targetUri = intent.getParcelableExtra("targetUri");
+
+                String p = " (" + progress + "%)";
+
+                if (d != null) {
+                    d.setProgress(progress);
+                }
+
+                EncodingService.EncodingStorage storage = new EncodingService.EncodingStorage(new Storage(context));
+                String str = "";
+                for (File f : storage.keySet()) {
+                    EncodingService.EncodingStorage.Info info = storage.get(f);
+                    String name = Storage.getName(context, info.targetUri);
+                    str += "- " + name;
+                    if (info.targetUri.equals(targetUri))
+                        str += p;
+                    str += "\n";
+                }
+
+                str = str.trim();
+
+                if (snackbar == null || !snackbar.isShown()) {
+                    snackbar = Snackbar.make(fab, str, Snackbar.LENGTH_LONG);
+                    snackbar.setDuration(Snackbar.LENGTH_INDEFINITE);
+                    snackbar.getView().setOnClickListener(new View.OnClickListener() {
+                        @Override
+                        public void onClick(View v) {
+                            d = new ProgressDialog(context);
+                            d.setTitle(R.string.encoding_title);
+                            d.setMessage(".../" + Storage.getName(context, targetUri));
+                            d.setMax(100);
+                            d.setProgress(progress);
+                            d.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
+                            d.setIndeterminate(false);
+                            d.show();
+                            EncodingService.startIfPending(context);
+                        }
+                    });
+                    snackbar.show();
+                } else {
+                    snackbar.setText(str);
+                    snackbar.show();
+                }
+
+                if (progress == 100) {
+                    recordings.load(false, null);
+                    if (snackbar != null && snackbar.isShown()) {
+                        snackbar.setDuration(Snackbar.LENGTH_SHORT);
+                        snackbar.show();
+                    }
+                }
+            }
+            if (a.equals(EncodingService.ERROR)) {
+                if (d != null) {
+                    d.dismiss();
+                    d = null;
+                }
+                File in = (File) intent.getSerializableExtra("in");
+                RawSamples.Info info;
+                try {
+                    info = new RawSamples.Info(intent.getStringExtra("info"));
+                } catch (JSONException e) {
+                    throw new RuntimeException(e);
+                }
+                Throwable e = (Throwable) intent.getSerializableExtra("e");
+                Error(in, info, e);
+            }
+        }
+
+        public void Error(final File in, final RawSamples.Info info, Throwable e) {
+            ErrorDialog builder = new ErrorDialog(context, ErrorDialog.toMessage(e));
+            builder.setOnCancelListener(new DialogInterface.OnCancelListener() {
+                @Override
+                public void onCancel(DialogInterface dialog) {
+                }
+            });
+            builder.setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
+                @Override
+                public void onClick(DialogInterface dialog, int which) {
+                }
+            });
+            if (in.length() > 0) {
+                builder.setNeutralButton(R.string.save_as_wav, new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        final OpenFileDialog d = new OpenFileDialog(context, OpenFileDialog.DIALOG_TYPE.FOLDER_DIALOG);
+                        d.setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                                EncodingService.saveAsWAV(context, in, storage.getNewFile(d.getCurrentPath(), FormatWAV.EXT), info);
+                            }
+                        });
+                        d.show();
+                    }
+                });
+            }
+            builder.show();
+        }
+
+        public void hide() {
+            snackbar.dismiss();
+        }
     }
 
     @Override
@@ -72,6 +217,7 @@ public class MainActivity extends AppCompatThemeActivity {
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON);
 
         setContentView(R.layout.activity_main);
+        final View content = findViewById(android.R.id.content);
 
         storage = new Storage(this);
 
@@ -121,8 +267,11 @@ public class MainActivity extends AppCompatThemeActivity {
             }
         };
         receiver.registerReceiver(this);
+        encoding = new EncodingDialog();
+        encoding.registerReceiver(this);
 
         RecordingService.startIfPending(this);
+        EncodingService.startIfPending(this);
 
         try {
             new Recordings.ExoLoader(this, false);
@@ -307,6 +456,7 @@ public class MainActivity extends AppCompatThemeActivity {
         super.onDestroy();
         recordings.close();
         receiver.close();
+        encoding.close();
     }
 
     void updateHeader() {

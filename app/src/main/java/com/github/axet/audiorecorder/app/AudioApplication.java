@@ -344,7 +344,7 @@ public class AudioApplication extends com.github.axet.audiolibrary.app.MainAppli
             }
         }
 
-        public void Post(Exception e) {
+        public void Post(Throwable e) {
             Post(ERROR, e);
         }
 

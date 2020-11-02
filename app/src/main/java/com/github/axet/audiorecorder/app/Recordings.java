@@ -9,6 +9,11 @@ import android.widget.TextView;
 
 import com.github.axet.androidlibrary.widgets.ErrorDialog;
 import com.github.axet.audiorecorder.R;
+import com.github.axet.audiorecorder.services.EncodingService;
+
+import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
 
 public class Recordings extends com.github.axet.audiolibrary.app.Recordings {
     public View progressEmpty;
@@ -52,5 +57,18 @@ public class Recordings extends com.github.axet.audiolibrary.app.Recordings {
             if (done != null)
                 done.run();
         }
+    }
+
+    @Override
+    public void scan(List<Storage.Node> nn, boolean clean, Runnable done) {
+        EncodingService.EncodingStorage storage = new EncodingService.EncodingStorage(new Storage(context));
+        for (Storage.Node n : new ArrayList<>(nn)) {
+            for (File key : storage.keySet()) {
+                EncodingService.EncodingStorage.Info info = storage.get(key);
+                if (n.uri.equals(info.targetUri))
+                    nn.remove(n);
+            }
+        }
+        super.scan(nn, clean, done);
     }
 }

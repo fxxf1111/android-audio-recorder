@@ -2,7 +2,6 @@ package com.github.axet.audiorecorder.activities;
 
 import android.Manifest;
 import android.app.Activity;
-import android.app.ProgressDialog;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.DialogInterface;
@@ -48,18 +47,14 @@ import com.github.axet.androidlibrary.widgets.Toast;
 import com.github.axet.audiolibrary.app.RawSamples;
 import com.github.axet.audiolibrary.app.Sound;
 import com.github.axet.audiolibrary.encoders.Factory;
-import com.github.axet.audiolibrary.encoders.FileEncoder;
 import com.github.axet.audiolibrary.encoders.FormatWAV;
-import com.github.axet.audiolibrary.encoders.OnFlyEncoding;
-import com.github.axet.audiolibrary.filters.AmplifierFilter;
-import com.github.axet.audiolibrary.filters.SkipSilenceFilter;
-import com.github.axet.audiolibrary.filters.VoiceFilter;
 import com.github.axet.audiolibrary.widgets.PitchView;
 import com.github.axet.audiorecorder.BuildConfig;
 import com.github.axet.audiorecorder.R;
 import com.github.axet.audiorecorder.app.AudioApplication;
 import com.github.axet.audiorecorder.app.Storage;
 import com.github.axet.audiorecorder.services.BluetoothReceiver;
+import com.github.axet.audiorecorder.services.EncodingService;
 import com.github.axet.audiorecorder.services.RecordingService;
 import com.github.axet.wget.SpeedInfo;
 
@@ -84,7 +79,6 @@ public class RecordingActivity extends AppCompatThemeActivity {
     public static final String STOP_RECORDING = RecordingService.class.getCanonicalName() + ".STOP_RECORDING";
 
     PhoneStateChangeListener pscl = new PhoneStateChangeListener();
-    FileEncoder encoder;
     Headset headset;
     Intent recordSoundIntent = null;
 
@@ -149,7 +143,7 @@ public class RecordingActivity extends AppCompatThemeActivity {
                 }
             }
             if (msg.what == AudioApplication.RecordingStorage.ERROR)
-                Error((Exception) msg.obj);
+                Error((Throwable) msg.obj);
         }
     };
 
@@ -435,15 +429,7 @@ public class RecordingActivity extends AppCompatThemeActivity {
     }
 
     public String toMessage(Throwable e) {
-        Throwable t;
-        if (encoder == null) {
-            t = e;
-        } else {
-            t = encoder.getException();
-            if (t == null)
-                t = e;
-        }
-        return ErrorDialog.toMessage(t);
+        return ErrorDialog.toMessage(e);
     }
 
     public void Error(Throwable e) {
@@ -474,14 +460,7 @@ public class RecordingActivity extends AppCompatThemeActivity {
                     d.setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
                         @Override
                         public void onClick(DialogInterface dialog, int which) {
-                            OnFlyEncoding fly = new OnFlyEncoding(recording.storage, recording.storage.getNewFile(d.getCurrentPath(), FormatWAV.EXT), recording.getInfo());
-                            FileEncoder encoder = new FileEncoder(RecordingActivity.this, in, fly);
-                            encoding(encoder, fly, new Runnable() {
-                                @Override
-                                public void run() {
-                                    finish();
-                                }
-                            });
+                            EncodingService.saveAsWAV(RecordingActivity.this, recording.storage.getTempRecording(), recording.storage.getNewFile(d.getCurrentPath(), FormatWAV.EXT), recording.getInfo());
                         }
                     });
                     d.show();
@@ -569,8 +548,6 @@ public class RecordingActivity extends AppCompatThemeActivity {
         done.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if (encoder != null)
-                    return;
                 String msg;
                 if (shared.getBoolean(AudioApplication.PREFERENCE_FLY, false))
                     msg = getString(R.string.recording_status_recording);
@@ -749,7 +726,7 @@ public class RecordingActivity extends AppCompatThemeActivity {
 
         boolean r = recording.thread != null;
 
-        RecordingService.startService(this, Storage.getName(this, recording.targetUri), r, encoder != null, duration);
+        RecordingService.startService(this, Storage.getName(this, recording.targetUri), r, duration);
 
         if (r) {
             pitch.record();
@@ -780,7 +757,7 @@ public class RecordingActivity extends AppCompatThemeActivity {
 
         stopRecording();
 
-        RecordingService.startService(this, Storage.getName(this, recording.targetUri), false, encoder != null, duration);
+        RecordingService.startService(this, Storage.getName(this, recording.targetUri), false, duration);
 
         final SharedPreferences shared = PreferenceManager.getDefaultSharedPreferences(this);
 
@@ -1038,11 +1015,6 @@ public class RecordingActivity extends AppCompatThemeActivity {
             play = null;
         }
 
-        if (encoder != null) {
-            encoder.close();
-            encoder = null;
-        }
-
         final SharedPreferences shared = PreferenceManager.getDefaultSharedPreferences(this);
         SharedPreferences.Editor editor = shared.edit();
         editor.remove(AudioApplication.PREFERENCE_TARGET);
@@ -1065,7 +1037,7 @@ public class RecordingActivity extends AppCompatThemeActivity {
 
             recording.startRecording();
 
-            RecordingService.startService(this, Storage.getName(this, recording.targetUri), true, encoder != null, duration);
+            RecordingService.startService(this, Storage.getName(this, recording.targetUri), true, duration);
         } catch (RuntimeException e) {
             Toast.Error(RecordingActivity.this, e);
             finish();
@@ -1076,7 +1048,7 @@ public class RecordingActivity extends AppCompatThemeActivity {
         long ms = samplesTime / recording.sampleRate * 1000;
         duration = AudioApplication.formatDuration(this, ms);
         time.setText(duration);
-        RecordingService.startService(this, Storage.getName(this, recording.targetUri), recording.thread != null, encoder != null, duration);
+        RecordingService.startService(this, Storage.getName(this, recording.targetUri), recording.thread != null, duration);
     }
 
     @Override
@@ -1108,8 +1080,6 @@ public class RecordingActivity extends AppCompatThemeActivity {
             }
         }
 
-        final File in = recording.storage.getTempRecording();
-
         final Runnable last = new Runnable() {
             @Override
             public void run() {
@@ -1120,12 +1090,14 @@ public class RecordingActivity extends AppCompatThemeActivity {
             }
         };
 
+        final File in = recording.storage.getTempRecording();
+
         if (!in.exists() || in.length() == 0) {
             last.run();
             return;
         }
 
-        final OnFlyEncoding fly = new OnFlyEncoding(recording.storage, recording.targetUri, recording.getInfo());
+        EncodingService.startEncoding(this, in, recording.targetUri, recording.getInfo());
 
         encoder = new FileEncoder(this, in, fly);
 
@@ -1168,6 +1140,7 @@ public class RecordingActivity extends AppCompatThemeActivity {
                 Error(encoder.getException());
             }
         });
+        last.run();
     }
 
     @Override
