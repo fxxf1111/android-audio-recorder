@@ -109,7 +109,7 @@ public class EncodingService extends PersistentService {
 
     public static void startEncoding(Context context, File in, Uri targetUri, RawSamples.Info info) {
         EncodingStorage storage = new EncodingStorage(new Storage(context));
-        storage.save(in, targetUri, info);
+        in = storage.save(in, targetUri, info);
         String json;
         try {
             json = info.save().toString();
@@ -192,8 +192,8 @@ public class EncodingService extends PersistentService {
             }
         }
 
-        public void save(File in, Uri targetUri, RawSamples.Info info) {
-            File to = storage.getTempEncoding();
+        public File save(File in, Uri targetUri, RawSamples.Info info) {
+            File to = in;
             to = Storage.getNextFile(to);
             to = Storage.move(in, to);
             try {
@@ -201,6 +201,7 @@ public class EncodingService extends PersistentService {
                 Info rec = new Info(targetUri, info);
                 JSONObject json = rec.save();
                 FileUtils.writeStringToFile(j, json.toString(), Charset.defaultCharset());
+                return to;
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
