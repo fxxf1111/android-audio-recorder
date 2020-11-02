@@ -20,8 +20,8 @@ import com.github.axet.androidlibrary.preferences.OptimizationPreferenceCompat;
 import com.github.axet.androidlibrary.services.PersistentService;
 import com.github.axet.androidlibrary.widgets.RemoteNotificationCompat;
 import com.github.axet.audiolibrary.app.RawSamples;
-import com.github.axet.audiolibrary.app.Storage;
 import com.github.axet.audiolibrary.encoders.FileEncoder;
+import com.github.axet.audiolibrary.encoders.FormatWAV;
 import com.github.axet.audiolibrary.encoders.OnFlyEncoding;
 import com.github.axet.audiolibrary.filters.AmplifierFilter;
 import com.github.axet.audiolibrary.filters.SkipSilenceFilter;
@@ -30,6 +30,7 @@ import com.github.axet.audiorecorder.R;
 import com.github.axet.audiorecorder.activities.MainActivity;
 import com.github.axet.audiorecorder.activities.RecordingActivity;
 import com.github.axet.audiorecorder.app.AudioApplication;
+import com.github.axet.audiorecorder.app.Storage;
 
 import org.apache.commons.io.FileUtils;
 import org.json.JSONException;
@@ -38,7 +39,6 @@ import org.json.JSONObject;
 import java.io.File;
 import java.io.FilenameFilter;
 import java.nio.charset.Charset;
-import java.util.ArrayList;
 import java.util.HashMap;
 
 public class EncodingService extends PersistentService {
@@ -193,7 +193,7 @@ public class EncodingService extends PersistentService {
         }
 
         public File save(File in, Uri targetUri, RawSamples.Info info) {
-            File to = in;
+            File to = storage.getTempEncoding();
             to = Storage.getNextFile(to);
             to = Storage.move(in, to);
             try {
@@ -300,7 +300,8 @@ public class EncodingService extends PersistentService {
                 RecordingActivity.startActivity(this, !intent.getBooleanExtra("recording", false));
         } else if (a.equals(SAVE_AS_WAV)) {
             File in = (File) intent.getSerializableExtra("in");
-            File out = (File) intent.getSerializableExtra("out");
+            File out = (File) intent.getSerializableExtra("out"); // dir
+            out = storage.getNewFile(out, FormatWAV.EXT);
             RawSamples.Info info;
             try {
                 info = new RawSamples.Info(intent.getStringExtra("info"));

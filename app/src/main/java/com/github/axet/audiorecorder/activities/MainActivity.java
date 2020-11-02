@@ -311,7 +311,7 @@ public class MainActivity extends AppCompatThemeActivity {
                         d.setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
                             @Override
                             public void onClick(DialogInterface dialog, int which) {
-                                EncodingService.saveAsWAV(context, in, storage.getNewFile(d.getCurrentPath(), FormatWAV.EXT), info);
+                                EncodingService.saveAsWAV(context, in, d.getCurrentPath(), info);
                             }
                         });
                         d.show();
