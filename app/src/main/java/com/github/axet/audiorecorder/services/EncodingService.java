@@ -332,6 +332,7 @@ public class EncodingService extends PersistentService {
             if (encoder == null) {
                 OnFlyEncoding fly = new OnFlyEncoding(storage, targetUri, info);
                 encoder = new FileEncoder(this, in, fly);
+                filters(encoder, info);
                 encoding(encoder, fly, info, new Runnable() {
                     @Override
                     public void run() {
@@ -348,22 +349,13 @@ public class EncodingService extends PersistentService {
     public void startEncoding() {
         if (encoder != null)
             return;
-        SharedPreferences shared = PreferenceManager.getDefaultSharedPreferences(this);
         encodings.load();
         for (File in : encodings.keySet()) {
             EncodingStorage.Info info = encodings.get(in);
             final OnFlyEncoding fly = new OnFlyEncoding(this.storage, info.targetUri, info.info);
 
             encoder = new FileEncoder(this, in, fly);
-
-            if (shared.getBoolean(AudioApplication.PREFERENCE_VOICE, false))
-                encoder.filters.add(new VoiceFilter(info.info));
-            float amp = shared.getFloat(AudioApplication.PREFERENCE_VOLUME, 1);
-            if (amp != 1)
-                encoder.filters.add(new AmplifierFilter(amp));
-            if (shared.getBoolean(AudioApplication.PREFERENCE_SKIP, false))
-                encoder.filters.add(new SkipSilenceFilter(info.info));
-
+            filters(encoder, info.info);
             encoding(encoder, fly, info.info, new Runnable() {
                 @Override
                 public void run() {
@@ -376,6 +368,17 @@ public class EncodingService extends PersistentService {
             return;
         }
         stopSelf();
+    }
+
+    void filters(FileEncoder encoder, RawSamples.Info info) {
+        SharedPreferences shared = PreferenceManager.getDefaultSharedPreferences(this);
+        if (shared.getBoolean(AudioApplication.PREFERENCE_VOICE, false))
+            encoder.filters.add(new VoiceFilter(info));
+        float amp = shared.getFloat(AudioApplication.PREFERENCE_VOLUME, 1);
+        if (amp != 1)
+            encoder.filters.add(new AmplifierFilter(amp));
+        if (shared.getBoolean(AudioApplication.PREFERENCE_SKIP, false))
+            encoder.filters.add(new SkipSilenceFilter(info));
     }
 
     void encoding(final FileEncoder encoder, final OnFlyEncoding fly, final RawSamples.Info info, final Runnable done) {
