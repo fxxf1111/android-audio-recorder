@@ -76,17 +76,15 @@ public class EncodingService extends PersistentService {
     }
 
     public static void saveAsWAV(Context context, File in, File out, RawSamples.Info info) { // start encoding process for selected file
-        String j;
         try {
-            j = info.save().toString();
+            start(context, new Intent(context, EncodingService.class).setAction(SAVE_AS_WAV)
+                    .putExtra("in", in)
+                    .putExtra("out", out)
+                    .putExtra("info", info.save().toString())
+            );
         } catch (JSONException e) {
             throw new RuntimeException(e);
         }
-        start(context, new Intent(context, EncodingService.class).setAction(SAVE_AS_WAV)
-                .putExtra("in", in)
-                .putExtra("out", out)
-                .putExtra("info", j)
-        );
     }
 
     public static void stop(Context context) {
@@ -94,33 +92,29 @@ public class EncodingService extends PersistentService {
     }
 
     public void Error(File in, RawSamples.Info info, Throwable e) {
-        String json;
         try {
-            json = info.save().toString();
+            sendBroadcast(new Intent(ERROR)
+                    .putExtra("in", in)
+                    .putExtra("info", info.save().toString())
+                    .putExtra("e", e)
+            );
         } catch (JSONException e1) {
             throw new RuntimeException(e1);
         }
-        sendBroadcast(new Intent(ERROR)
-                .putExtra("in", in)
-                .putExtra("info", json)
-                .putExtra("e", e)
-        );
     }
 
     public static void startEncoding(Context context, File in, Uri targetUri, RawSamples.Info info) {
-        EncodingStorage storage = new EncodingStorage(new Storage(context));
-        in = storage.save(in, targetUri, info);
-        String json;
         try {
-            json = info.save().toString();
+            EncodingStorage storage = new EncodingStorage(new Storage(context));
+            in = storage.save(in, targetUri, info);
+            start(context, new Intent(context, EncodingService.class).setAction(START_ENCODING)
+                    .putExtra("in", in)
+                    .putExtra("targetUri", targetUri)
+                    .putExtra("info", info.save().toString())
+            );
         } catch (JSONException e) {
             throw new RuntimeException(e);
         }
-        start(context, new Intent(context, EncodingService.class).setAction(START_ENCODING)
-                .putExtra("in", in)
-                .putExtra("targetUri", targetUri)
-                .putExtra("info", json)
-        );
     }
 
     public static class EncodingStorage extends HashMap<File, EncodingStorage.Info> {
@@ -299,48 +293,45 @@ public class EncodingService extends PersistentService {
             else
                 RecordingActivity.startActivity(this, !intent.getBooleanExtra("recording", false));
         } else if (a.equals(SAVE_AS_WAV)) {
-            File in = (File) intent.getSerializableExtra("in");
-            File out = (File) intent.getSerializableExtra("out"); // dir
-            out = storage.getNewFile(out, FormatWAV.EXT);
-            RawSamples.Info info;
             try {
-                info = new RawSamples.Info(intent.getStringExtra("info"));
+                File in = (File) intent.getSerializableExtra("in");
+                File out = (File) intent.getSerializableExtra("out"); // dir
+                out = storage.getNewFile(out, FormatWAV.EXT);
+                RawSamples.Info info = new RawSamples.Info(intent.getStringExtra("info"));
+                if (encoder == null) {
+                    OnFlyEncoding fly = new OnFlyEncoding(storage, out, info);
+                    encoder = new FileEncoder(this, in, fly);
+                    encoding(encoder, fly, info, new Runnable() {
+                        @Override
+                        public void run() {
+                            encoder.close();
+                            encoder = null;
+                            startEncoding();
+                        }
+                    });
+                }
             } catch (JSONException e) {
                 throw new RuntimeException(e);
-            }
-            if (encoder == null) {
-                OnFlyEncoding fly = new OnFlyEncoding(storage, out, info);
-                encoder = new FileEncoder(this, in, fly);
-                encoding(encoder, fly, info, new Runnable() {
-                    @Override
-                    public void run() {
-                        encoder.close();
-                        encoder = null;
-                        startEncoding();
-                    }
-                });
             }
         } else if (a.equals(START_ENCODING)) {
-            File in = (File) intent.getSerializableExtra("in");
-            Uri targetUri = intent.getParcelableExtra("targetUri");
-            RawSamples.Info info;
             try {
-                info = new RawSamples.Info(intent.getStringExtra("info"));
+                File in = (File) intent.getSerializableExtra("in");
+                Uri targetUri = intent.getParcelableExtra("targetUri");
+                RawSamples.Info info = new RawSamples.Info(intent.getStringExtra("info"));
+                if (encoder == null) {
+                    OnFlyEncoding fly = new OnFlyEncoding(storage, targetUri, info);
+                    encoder = new FileEncoder(this, in, fly);
+                    encodingFilters(encoder, fly, info, new Runnable() {
+                        @Override
+                        public void run() {
+                            encoder.close();
+                            encoder = null;
+                            startEncoding();
+                        }
+                    });
+                }
             } catch (JSONException e) {
                 throw new RuntimeException(e);
-            }
-            if (encoder == null) {
-                OnFlyEncoding fly = new OnFlyEncoding(storage, targetUri, info);
-                encoder = new FileEncoder(this, in, fly);
-                filters(encoder, info);
-                encoding(encoder, fly, info, new Runnable() {
-                    @Override
-                    public void run() {
-                        encoder.close();
-                        encoder = null;
-                        startEncoding();
-                    }
-                });
             }
         }
         startEncoding();
@@ -355,8 +346,7 @@ public class EncodingService extends PersistentService {
             final OnFlyEncoding fly = new OnFlyEncoding(this.storage, info.targetUri, info.info);
 
             encoder = new FileEncoder(this, in, fly);
-            filters(encoder, info.info);
-            encoding(encoder, fly, info.info, new Runnable() {
+            encodingFilters(encoder, fly, info.info, new Runnable() {
                 @Override
                 public void run() {
                     encoder.close();
@@ -370,7 +360,7 @@ public class EncodingService extends PersistentService {
         stopSelf();
     }
 
-    void filters(FileEncoder encoder, RawSamples.Info info) {
+    void encodingFilters(final FileEncoder encoder, final OnFlyEncoding fly, final RawSamples.Info info, final Runnable done) {
         SharedPreferences shared = PreferenceManager.getDefaultSharedPreferences(this);
         if (shared.getBoolean(AudioApplication.PREFERENCE_VOICE, false))
             encoder.filters.add(new VoiceFilter(info));
@@ -379,6 +369,7 @@ public class EncodingService extends PersistentService {
             encoder.filters.add(new AmplifierFilter(amp));
         if (shared.getBoolean(AudioApplication.PREFERENCE_SKIP, false))
             encoder.filters.add(new SkipSilenceFilter(info));
+        encoding(encoder, fly, info, done);
     }
 
     void encoding(final FileEncoder encoder, final OnFlyEncoding fly, final RawSamples.Info info, final Runnable done) {
@@ -387,42 +378,32 @@ public class EncodingService extends PersistentService {
 
             @Override
             public void run() {
-                String json;
                 try {
-                    json = info.save().toString();
-                } catch (JSONException e1) {
-                    throw new RuntimeException(e1);
-                }
-                long cur = encoder.getCurrent();
-                long total = encoder.getTotal();
-                long now = System.currentTimeMillis();
-                Intent intent = new Intent(UPDATE_ENCODING)
-                        .putExtra("cur", cur)
-                        .putExtra("total", total)
-                        .putExtra("info", json)
-                        .putExtra("targetUri", fly.targetUri)
-                        .putExtra("targetFile", Storage.getName(EncodingService.this, fly.targetUri));
-                if (last + 1000 < now) {
-                    last = now;
-                    sendBroadcast(intent);
-                    optimization.icon.updateIcon(intent);
+                    long cur = encoder.getCurrent();
+                    long total = encoder.getTotal();
+                    long now = System.currentTimeMillis();
+                    Intent intent = new Intent(UPDATE_ENCODING)
+                            .putExtra("cur", cur)
+                            .putExtra("total", total)
+                            .putExtra("info", info.save().toString())
+                            .putExtra("targetUri", fly.targetUri)
+                            .putExtra("targetFile", Storage.getName(EncodingService.this, fly.targetUri));
+                    if (last + 1000 < now) {
+                        last = now;
+                        sendBroadcast(intent);
+                        optimization.icon.updateIcon(intent);
+                    }
+                } catch (JSONException e) {
+                    throw new RuntimeException(e);
                 }
             }
         }, new Runnable() {
             @Override
             public void run() { // success
-                String json;
-                try {
-                    json = info.save().toString();
-                } catch (JSONException e1) {
-                    throw new RuntimeException(e1);
-                }
                 Storage.delete(encoder.in); // delete raw recording
                 Storage.delete(EncodingStorage.jsonFile(encoder.in)); // delete json file
                 sendBroadcast(new Intent(UPDATE_ENCODING)
-                        .putExtra("cur", encoder.getCurrent())
-                        .putExtra("total", encoder.getTotal())
-                        .putExtra("info", json)
+                        .putExtra("done", true)
                         .putExtra("targetUri", fly.targetUri)
                 );
                 done.run();

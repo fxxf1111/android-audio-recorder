@@ -210,10 +210,15 @@ public class MainActivity extends AppCompatThemeActivity {
                 cur = intent.getLongExtra("cur", -1);
                 total = intent.getLongExtra("total", -1);
                 final long progress = cur * 100 / total;
+                boolean done = intent.getBooleanExtra("done", false);
                 final Uri targetUri = intent.getParcelableExtra("targetUri");
                 final RawSamples.Info info;
                 try {
-                    info = new RawSamples.Info(intent.getStringExtra("info"));
+                    String j = intent.getStringExtra("info");
+                    if (j != null)
+                        info = new RawSamples.Info(j);
+                    else
+                        info = null;
                 } catch (JSONException e) {
                     throw new RuntimeException(e);
                 }
@@ -252,11 +257,12 @@ public class MainActivity extends AppCompatThemeActivity {
                     });
                     snackbar.show();
                 } else {
+                    snackbar.setDuration(Snackbar.LENGTH_INDEFINITE);
                     snackbar.setText(str);
                     snackbar.show();
                 }
 
-                if (cur == total) {
+                if (done) {
                     recordings.load(false, null);
                     if (snackbar != null && snackbar.isShown()) {
                         snackbar.setDuration(Snackbar.LENGTH_SHORT);
