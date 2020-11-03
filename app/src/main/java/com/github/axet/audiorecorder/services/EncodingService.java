@@ -61,6 +61,9 @@ public class EncodingService extends PersistentService {
                 EncodingStorage encodings = ((AudioApplication) getApplication()).encodings;
                 encodings.restart();
             }
+            if (msg.what == EncodingStorage.EXIT) {
+                stopSelf();
+            }
             if (msg.what == EncodingStorage.ERROR) {
                 stopSelf();
             }
