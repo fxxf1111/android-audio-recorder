@@ -49,6 +49,7 @@ public class EncodingService extends PersistentService {
     public static String SHOW_ACTIVITY = EncodingService.class.getCanonicalName() + ".SHOW_ACTIVITY";
     public static String SAVE_AS_WAV = EncodingService.class.getCanonicalName() + ".SAVE_AS_WAV";
     public static String UPDATE_ENCODING = EncodingService.class.getCanonicalName() + ".UPDATE_ENCODING";
+    public static String DONE_ENCODING = EncodingService.class.getCanonicalName() + ".DONE_ENCODING";
     public static String START_ENCODING = EncodingService.class.getCanonicalName() + ".START_ENCODING";
     public static String ERROR = EncodingService.class.getCanonicalName() + ".ERROR";
 
@@ -402,8 +403,7 @@ public class EncodingService extends PersistentService {
             public void run() { // success
                 Storage.delete(encoder.in); // delete raw recording
                 Storage.delete(EncodingStorage.jsonFile(encoder.in)); // delete json file
-                sendBroadcast(new Intent(UPDATE_ENCODING)
-                        .putExtra("done", true)
+                sendBroadcast(new Intent(DONE_ENCODING)
                         .putExtra("targetUri", fly.targetUri)
                 );
                 done.run();

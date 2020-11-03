@@ -200,50 +200,44 @@ public class MainActivity extends AppCompatThemeActivity {
             context.unregisterReceiver(this);
         }
 
+        public String printEncodings(Uri targetUri) {
+            final long progress = cur * 100 / total;
+            String p = " (" + progress + "%)";
+            String str = "";
+            EncodingService.EncodingStorage storage = new EncodingService.EncodingStorage(new Storage(context));
+            for (File f : storage.keySet()) {
+                EncodingService.EncodingStorage.Info n = storage.get(f);
+                String name = Storage.getName(context, n.targetUri);
+                str += "- " + name;
+                if (n.targetUri.equals(targetUri))
+                    str += p;
+                str += "\n";
+            }
+            str = str.trim();
+            return str;
+        }
+
         @Override
         public void onReceive(final Context context, Intent intent) {
             String a = intent.getAction();
             if (a == null)
                 return;
             if (a.equals(EncodingService.UPDATE_ENCODING)) {
-                boolean done = intent.getBooleanExtra("done", false);
                 cur = intent.getLongExtra("cur", -1);
                 total = intent.getLongExtra("total", -1);
-                final long progress = cur * 100 / total;
                 final Uri targetUri = intent.getParcelableExtra("targetUri");
                 final RawSamples.Info info;
                 try {
-                    String j = intent.getStringExtra("info");
-                    if (j != null)
-                        info = new RawSamples.Info(j);
-                    else
-                        info = null;
+                    info = new RawSamples.Info(intent.getStringExtra("info"));
                 } catch (JSONException e) {
                     throw new RuntimeException(e);
                 }
 
-                String p = " (" + progress + "%)";
-
                 if (d != null)
                     d.setProgress(cur, total);
 
-                String str = "";
-
-                if (targetUri != null) {
-                    EncodingService.EncodingStorage storage = new EncodingService.EncodingStorage(new Storage(context));
-                    for (File f : storage.keySet()) {
-                        EncodingService.EncodingStorage.Info n = storage.get(f);
-                        String name = Storage.getName(context, n.targetUri);
-                        str += "- " + name;
-                        if (n.targetUri.equals(targetUri))
-                            str += p;
-                        str += "\n";
-                    }
-                    str = str.trim();
-                }
-
                 if (snackbar == null || !snackbar.isShownOrQueued()) {
-                    snackbar = Snackbar.make(fab, str, Snackbar.LENGTH_LONG);
+                    snackbar = Snackbar.make(fab, printEncodings(targetUri), Snackbar.LENGTH_LONG);
                     snackbar.setDuration(Snackbar.LENGTH_INDEFINITE);
                     snackbar.getView().setOnClickListener(new View.OnClickListener() {
                         @Override
@@ -258,20 +252,21 @@ public class MainActivity extends AppCompatThemeActivity {
                     });
                     snackbar.show();
                 } else {
-                    snackbar.setText(str);
+                    snackbar.setText(printEncodings(targetUri));
                     snackbar.show();
                 }
-
-                if (done) {
-                    if (d != null) {
-                        d.dismiss();
-                        d = null;
-                    }
-                    recordings.load(false, null);
-                    if (snackbar != null && snackbar.isShownOrQueued()) {
-                        snackbar.setDuration(Snackbar.LENGTH_SHORT);
-                        snackbar.show();
-                    }
+            }
+            if (a.equals(EncodingService.DONE_ENCODING)) {
+                if (d != null) {
+                    d.dismiss();
+                    d = null;
+                }
+                final Uri targetUri = intent.getParcelableExtra("targetUri");
+                recordings.load(false, null);
+                if (snackbar != null && snackbar.isShownOrQueued()) {
+                    snackbar.setText(printEncodings(targetUri));
+                    snackbar.setDuration(Snackbar.LENGTH_SHORT);
+                    snackbar.show();
                 }
             }
             if (a.equals(EncodingService.ERROR)) {
@@ -329,10 +324,6 @@ public class MainActivity extends AppCompatThemeActivity {
                 });
             }
             builder.show();
-        }
-
-        public void hide() {
-            snackbar.dismiss();
         }
     }
 
