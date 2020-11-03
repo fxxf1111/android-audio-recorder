@@ -40,10 +40,6 @@ public class EncodingService extends PersistentService {
     public static String SAVE_AS_WAV = EncodingService.class.getCanonicalName() + ".SAVE_AS_WAV";
     public static String START_ENCODING = EncodingService.class.getCanonicalName() + ".START_ENCODING";
 
-    static {
-        OptimizationPreferenceCompat.REFRESH = AlarmManager.MIN1;
-    }
-
     Storage storage; // for storage path
     Handler handler = new Handler() {
         long last = 0;

@@ -141,6 +141,7 @@ public class MainActivity extends AppCompatThemeActivity {
         }
 
         public void setProgress(long cur, long total) {
+            setMax(total > Integer.MAX_VALUE ? (int) (total / (Long.MAX_VALUE / Integer.MAX_VALUE)) : (int) total);
             if (current == null) {
                 current = new SpeedInfo();
                 current.start(cur);
@@ -182,7 +183,7 @@ public class MainActivity extends AppCompatThemeActivity {
     public class EncodingDialog extends Handler {
         Context context;
         Snackbar snackbar;
-        ProgressEncoding d;
+        ProgressEncoding progress;
         long cur;
         long total;
         Storage storage;
@@ -240,8 +241,8 @@ public class MainActivity extends AppCompatThemeActivity {
                         throw new RuntimeException(e);
                     }
 
-                    if (d != null)
-                        d.setProgress(cur, total);
+                    if (progress != null)
+                        progress.setProgress(cur, total);
 
                     if (snackbar == null || !snackbar.isShownOrQueued()) {
                         snackbar = Snackbar.make(fab, printEncodings(targetUri), Snackbar.LENGTH_LONG);
@@ -249,11 +250,11 @@ public class MainActivity extends AppCompatThemeActivity {
                         snackbar.getView().setOnClickListener(new View.OnClickListener() {
                             @Override
                             public void onClick(View v) {
-                                d = new ProgressEncoding(context, info);
-                                d.setTitle(R.string.encoding_title);
-                                d.setMessage(".../" + Storage.getName(context, targetUri));
-                                d.show();
-                                d.setProgress(cur, total);
+                                progress = new ProgressEncoding(context, info);
+                                progress.setTitle(R.string.encoding_title);
+                                progress.setMessage(".../" + Storage.getName(context, targetUri));
+                                progress.show();
+                                progress.setProgress(cur, total);
                                 EncodingService.startIfPending(context);
                             }
                         });
@@ -266,9 +267,9 @@ public class MainActivity extends AppCompatThemeActivity {
             }
             if (msg.what == EncodingStorage.DONE) {
                 Intent intent = (Intent) msg.obj;
-                if (d != null) {
-                    d.dismiss();
-                    d = null;
+                if (progress != null) {
+                    progress.dismiss();
+                    progress = null;
                 }
                 final Uri targetUri = intent.getParcelableExtra("targetUri");
                 recordings.load(false, null);
@@ -278,11 +279,18 @@ public class MainActivity extends AppCompatThemeActivity {
                     snackbar.show();
                 }
             }
+            if (msg.what == EncodingStorage.EXIT) {
+                if (progress != null) {
+                    progress.dismiss();
+                    progress = null;
+                }
+                hide();
+            }
             if (msg.what == EncodingStorage.ERROR) {
                 Intent intent = (Intent) msg.obj;
-                if (d != null) {
-                    d.dismiss();
-                    d = null;
+                if (progress != null) {
+                    progress.dismiss();
+                    progress = null;
                 }
                 File in = (File) intent.getSerializableExtra("in");
                 RawSamples.Info info;
@@ -297,13 +305,13 @@ public class MainActivity extends AppCompatThemeActivity {
         }
 
         public void onPause() {
-            if (d != null)
-                d.onPause(cur);
+            if (progress != null)
+                progress.onPause(cur);
         }
 
         public void onResume() {
-            if (d != null)
-                d.onResume(cur);
+            if (progress != null)
+                progress.onResume(cur);
             encodings.load();
             if (encodings.isEmpty())
                 hide();
