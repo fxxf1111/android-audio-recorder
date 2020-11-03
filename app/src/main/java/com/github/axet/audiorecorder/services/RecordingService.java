@@ -10,9 +10,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.Build;
-import android.os.IBinder;
 import android.preference.PreferenceManager;
-import android.support.annotation.Nullable;
 import android.util.Log;
 import android.view.View;
 import android.widget.RemoteViews;
@@ -249,16 +247,5 @@ public class RecordingService extends PersistentService {
             else
                 RecordingActivity.startActivity(this, !intent.getBooleanExtra("recording", false));
         }
-    }
-
-    @Nullable
-    @Override
-    public IBinder onBind(Intent intent) {
-        return null;
-    }
-
-    @Override
-    public void onDestroy() {
-        super.onDestroy();
     }
 }
