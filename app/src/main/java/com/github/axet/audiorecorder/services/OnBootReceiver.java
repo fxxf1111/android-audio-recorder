@@ -12,5 +12,6 @@ public class OnBootReceiver extends BroadcastReceiver {
     public void onReceive(Context context, Intent i) {
         Log.d(TAG, "onReceive");
         RecordingService.startIfPending(context);
+        EncodingService.startIfPending(context);
     }
 }
