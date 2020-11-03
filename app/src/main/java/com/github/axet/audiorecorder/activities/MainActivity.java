@@ -40,7 +40,6 @@ import com.github.axet.androidlibrary.widgets.ErrorDialog;
 import com.github.axet.androidlibrary.widgets.OpenFileDialog;
 import com.github.axet.androidlibrary.widgets.SearchView;
 import com.github.axet.audiolibrary.app.RawSamples;
-import com.github.axet.audiolibrary.encoders.FormatWAV;
 import com.github.axet.audiorecorder.R;
 import com.github.axet.audiorecorder.app.AudioApplication;
 import com.github.axet.audiorecorder.app.Recordings;
@@ -105,9 +104,9 @@ public class MainActivity extends AppCompatThemeActivity {
 
         public ProgressEncoding(Context context, RawSamples.Info info) {
             super(context);
-            setMax(100);
             setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
             setIndeterminate(false);
+            setMax(100);
             this.info = info;
         }
 
@@ -175,7 +174,7 @@ public class MainActivity extends AppCompatThemeActivity {
                 }
             }
             text.setText(AudioApplication.formatSize(getContext(), current.getAverageSpeed() * info.bps / Byte.SIZE) + getContext().getString(R.string.per_second));
-            super.setProgress((int) (cur * 100 / total));
+            super.setProgress((int) (cur * getMax() / total));
         }
     }
 
@@ -207,10 +206,10 @@ public class MainActivity extends AppCompatThemeActivity {
             if (a == null)
                 return;
             if (a.equals(EncodingService.UPDATE_ENCODING)) {
+                boolean done = intent.getBooleanExtra("done", false);
                 cur = intent.getLongExtra("cur", -1);
                 total = intent.getLongExtra("total", -1);
                 final long progress = cur * 100 / total;
-                boolean done = intent.getBooleanExtra("done", false);
                 final Uri targetUri = intent.getParcelableExtra("targetUri");
                 final RawSamples.Info info;
                 try {
@@ -228,20 +227,22 @@ public class MainActivity extends AppCompatThemeActivity {
                 if (d != null)
                     d.setProgress(cur, total);
 
-                EncodingService.EncodingStorage storage = new EncodingService.EncodingStorage(new Storage(context));
                 String str = "";
-                for (File f : storage.keySet()) {
-                    EncodingService.EncodingStorage.Info n = storage.get(f);
-                    String name = Storage.getName(context, n.targetUri);
-                    str += "- " + name;
-                    if (n.targetUri.equals(targetUri))
-                        str += p;
-                    str += "\n";
+
+                if (targetUri != null) {
+                    EncodingService.EncodingStorage storage = new EncodingService.EncodingStorage(new Storage(context));
+                    for (File f : storage.keySet()) {
+                        EncodingService.EncodingStorage.Info n = storage.get(f);
+                        String name = Storage.getName(context, n.targetUri);
+                        str += "- " + name;
+                        if (n.targetUri.equals(targetUri))
+                            str += p;
+                        str += "\n";
+                    }
+                    str = str.trim();
                 }
 
-                str = str.trim();
-
-                if (snackbar == null || !snackbar.isShown()) {
+                if (snackbar == null || !snackbar.isShownOrQueued()) {
                     snackbar = Snackbar.make(fab, str, Snackbar.LENGTH_LONG);
                     snackbar.setDuration(Snackbar.LENGTH_INDEFINITE);
                     snackbar.getView().setOnClickListener(new View.OnClickListener() {
@@ -257,14 +258,17 @@ public class MainActivity extends AppCompatThemeActivity {
                     });
                     snackbar.show();
                 } else {
-                    snackbar.setDuration(Snackbar.LENGTH_INDEFINITE);
                     snackbar.setText(str);
                     snackbar.show();
                 }
 
                 if (done) {
+                    if (d != null) {
+                        d.dismiss();
+                        d = null;
+                    }
                     recordings.load(false, null);
-                    if (snackbar != null && snackbar.isShown()) {
+                    if (snackbar != null && snackbar.isShownOrQueued()) {
                         snackbar.setDuration(Snackbar.LENGTH_SHORT);
                         snackbar.show();
                     }

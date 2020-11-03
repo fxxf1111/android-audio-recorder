@@ -932,7 +932,10 @@ public class RecordingActivity extends AppCompatThemeActivity {
         long ms = samplesTime / recording.sampleRate * 1000;
         duration = AudioApplication.formatDuration(this, ms);
         time.setText(duration);
-        RecordingService.startService(this, Storage.getName(this, recording.targetUri), recording.thread != null, duration);
+        boolean r = recording.thread != null;
+        if (r)
+            setState(getString(R.string.recording_status_recording)); // update 'free' during recording
+        RecordingService.startService(this, Storage.getName(this, recording.targetUri), r, duration);
     }
 
     @Override
