@@ -141,7 +141,8 @@ public class MainActivity extends AppCompatThemeActivity {
         }
 
         public void setProgress(long cur, long total) {
-            setMax(total > Integer.MAX_VALUE ? (int) (total / (Long.MAX_VALUE / Integer.MAX_VALUE)) : (int) total);
+            long max = total / info.hz / info.channels;
+            setMax(max > Integer.MAX_VALUE ? (int) (max / (Long.MAX_VALUE / Integer.MAX_VALUE)) : (int) max);
             if (current == null) {
                 current = new SpeedInfo();
                 current.start(cur);
