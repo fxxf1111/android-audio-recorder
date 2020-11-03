@@ -50,6 +50,7 @@ import com.github.axet.audiolibrary.widgets.PitchView;
 import com.github.axet.audiorecorder.BuildConfig;
 import com.github.axet.audiorecorder.R;
 import com.github.axet.audiorecorder.app.AudioApplication;
+import com.github.axet.audiorecorder.app.RecordingStorage;
 import com.github.axet.audiorecorder.app.Storage;
 import com.github.axet.audiorecorder.services.BluetoothReceiver;
 import com.github.axet.audiorecorder.services.EncodingService;
@@ -95,7 +96,7 @@ public class RecordingActivity extends AppCompatThemeActivity {
 
     ScreenReceiver screen;
 
-    AudioApplication.RecordingStorage recording;
+    RecordingStorage recording;
 
     RecordingReceiver receiver;
 
@@ -103,31 +104,31 @@ public class RecordingActivity extends AppCompatThemeActivity {
     Handler handler = new Handler() {
         @Override
         public void handleMessage(Message msg) {
-            if (msg.what == AudioApplication.RecordingStorage.PINCH)
+            if (msg.what == RecordingStorage.PINCH)
                 pitch.add((Double) msg.obj);
-            if (msg.what == AudioApplication.RecordingStorage.UPDATESAMPLES)
+            if (msg.what == RecordingStorage.UPDATESAMPLES)
                 updateSamples((Long) msg.obj);
-            if (msg.what == AudioApplication.RecordingStorage.PAUSED) {
+            if (msg.what == RecordingStorage.PAUSED) {
                 muted = RecordingActivity.startActivity(RecordingActivity.this, "Error", getString(R.string.mic_paused));
                 if (muted != null) {
                     AutoClose ac = new AutoClose(muted, 10);
                     ac.run();
                 }
             }
-            if (msg.what == AudioApplication.RecordingStorage.MUTED) {
+            if (msg.what == RecordingStorage.MUTED) {
                 if (Build.VERSION.SDK_INT >= 28)
                     muted = RecordingActivity.startActivity(RecordingActivity.this, getString(R.string.mic_muted_error), getString(R.string.mic_muted_pie));
                 else
                     muted = RecordingActivity.startActivity(RecordingActivity.this, "Error", getString(R.string.mic_muted_error));
             }
-            if (msg.what == AudioApplication.RecordingStorage.UNMUTED) {
+            if (msg.what == RecordingStorage.UNMUTED) {
                 if (muted != null) {
                     AutoClose run = new AutoClose(muted);
                     run.run();
                     muted = null;
                 }
             }
-            if (msg.what == AudioApplication.RecordingStorage.END) {
+            if (msg.what == RecordingStorage.END) {
                 pitch.drawEnd();
                 if (!recording.interrupt.get()) {
                     stopRecording(getString(R.string.recording_status_pause));
@@ -138,7 +139,7 @@ public class RecordingActivity extends AppCompatThemeActivity {
                         muted = RecordingActivity.startActivity(RecordingActivity.this, getString(R.string.mic_muted_error), text);
                 }
             }
-            if (msg.what == AudioApplication.RecordingStorage.ERROR)
+            if (msg.what == RecordingStorage.ERROR)
                 Error((Throwable) msg.obj);
         }
     };
@@ -509,7 +510,7 @@ public class RecordingActivity extends AppCompatThemeActivity {
                     editor.commit();
                 }
                 Log.d(TAG, "create recording at: " + targetUri);
-                app.recording = new AudioApplication.RecordingStorage(this, pitch.getPitchTime(), targetUri);
+                app.recording = new RecordingStorage(this, pitch.getPitchTime(), targetUri);
             }
             recording = app.recording;
             synchronized (recording.handlers) {

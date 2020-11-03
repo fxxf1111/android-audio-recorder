@@ -2,16 +2,16 @@ package com.github.axet.audiorecorder.activities;
 
 import android.app.KeyguardManager;
 import android.app.ProgressDialog;
-import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.res.Configuration;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Message;
 import android.preference.PreferenceManager;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
@@ -42,6 +42,7 @@ import com.github.axet.androidlibrary.widgets.SearchView;
 import com.github.axet.audiolibrary.app.RawSamples;
 import com.github.axet.audiorecorder.R;
 import com.github.axet.audiorecorder.app.AudioApplication;
+import com.github.axet.audiorecorder.app.EncodingStorage;
 import com.github.axet.audiorecorder.app.Recordings;
 import com.github.axet.audiorecorder.app.Storage;
 import com.github.axet.audiorecorder.services.EncodingService;
@@ -178,35 +179,39 @@ public class MainActivity extends AppCompatThemeActivity {
         }
     }
 
-    public class EncodingDialog extends BroadcastReceiver {
+    public class EncodingDialog extends Handler {
         Context context;
         Snackbar snackbar;
-        IntentFilter filter = new IntentFilter();
         ProgressEncoding d;
         long cur;
         long total;
+        Storage storage;
+        EncodingStorage encodings;
 
         public EncodingDialog() {
-            filter.addAction(EncodingService.UPDATE_ENCODING);
-            filter.addAction(EncodingService.ERROR);
         }
 
         public void registerReceiver(Context context) {
             this.context = context;
-            context.registerReceiver(this, filter);
+            storage = new Storage(context);
+            encodings = ((AudioApplication) context.getApplicationContext()).encodings;
+            synchronized (encodings.handlers) {
+                encodings.handlers.add(this);
+            }
         }
 
         public void close() {
-            context.unregisterReceiver(this);
+            synchronized (encodings.handlers) {
+                encodings.handlers.remove(this);
+            }
         }
 
         public String printEncodings(Uri targetUri) {
             final long progress = cur * 100 / total;
             String p = " (" + progress + "%)";
             String str = "";
-            EncodingService.EncodingStorage storage = new EncodingService.EncodingStorage(new Storage(context));
-            for (File f : storage.keySet()) {
-                EncodingService.EncodingStorage.Info n = storage.get(f);
+            for (File f : encodings.keySet()) {
+                EncodingStorage.Info n = encodings.get(f);
                 String name = Storage.getName(context, n.targetUri);
                 str += "- " + name;
                 if (n.targetUri.equals(targetUri))
@@ -218,11 +223,10 @@ public class MainActivity extends AppCompatThemeActivity {
         }
 
         @Override
-        public void onReceive(final Context context, Intent intent) {
-            String a = intent.getAction();
-            if (a == null)
-                return;
-            if (a.equals(EncodingService.UPDATE_ENCODING)) {
+        public void handleMessage(Message msg) {
+            if (msg.what == EncodingStorage.UPDATE) {
+                encodings.load();
+                Intent intent = (Intent) msg.obj;
                 cur = intent.getLongExtra("cur", -1);
                 total = intent.getLongExtra("total", -1);
                 final Uri targetUri = intent.getParcelableExtra("targetUri");
@@ -256,7 +260,8 @@ public class MainActivity extends AppCompatThemeActivity {
                     snackbar.show();
                 }
             }
-            if (a.equals(EncodingService.DONE_ENCODING)) {
+            if (msg.what == EncodingStorage.DONE) {
+                Intent intent = (Intent) msg.obj;
                 if (d != null) {
                     d.dismiss();
                     d = null;
@@ -269,7 +274,8 @@ public class MainActivity extends AppCompatThemeActivity {
                     snackbar.show();
                 }
             }
-            if (a.equals(EncodingService.ERROR)) {
+            if (msg.what == EncodingStorage.ERROR) {
+                Intent intent = (Intent) msg.obj;
                 if (d != null) {
                     d.dismiss();
                     d = null;
@@ -294,6 +300,9 @@ public class MainActivity extends AppCompatThemeActivity {
         public void onResume() {
             if (d != null)
                 d.onResume(cur);
+            encodings.load();
+            if (encodings.isEmpty())
+                hide();
         }
 
         public void Error(final File in, final RawSamples.Info info, Throwable e) {
@@ -324,6 +333,13 @@ public class MainActivity extends AppCompatThemeActivity {
                 });
             }
             builder.show();
+        }
+
+        public void hide() {
+            if (snackbar != null) {
+                snackbar.dismiss();
+                snackbar = null;
+            }
         }
     }
 
