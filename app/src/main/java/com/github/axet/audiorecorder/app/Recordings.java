@@ -61,10 +61,10 @@ public class Recordings extends com.github.axet.audiolibrary.app.Recordings {
 
     @Override
     public void scan(List<Storage.Node> nn, boolean clean, Runnable done) {
-        EncodingStorage storage = new EncodingStorage(context);
+        EncodingStorage encodings = ((AudioApplication)context.getApplicationContext()).encodings;
         for (Storage.Node n : new ArrayList<>(nn)) {
-            for (File key : storage.keySet()) {
-                EncodingStorage.Info info = storage.get(key);
+            for (File key : encodings.keySet()) {
+                EncodingStorage.Info info = encodings.get(key);
                 if (n.uri.equals(info.targetUri))
                     nn.remove(n);
             }

@@ -189,7 +189,6 @@ public class MainActivity extends AppCompatThemeActivity {
         long total;
         Storage storage;
         EncodingStorage encodings;
-        long last = 0;
 
         public EncodingDialog() {
         }
@@ -228,42 +227,38 @@ public class MainActivity extends AppCompatThemeActivity {
         @Override
         public void handleMessage(Message msg) {
             if (msg.what == EncodingStorage.UPDATE) {
-                long now = System.currentTimeMillis();
-                if (last + 1000 < now) {
-                    last = now;
-                    Intent intent = (Intent) msg.obj;
-                    cur = intent.getLongExtra("cur", -1);
-                    total = intent.getLongExtra("total", -1);
-                    final Uri targetUri = intent.getParcelableExtra("targetUri");
-                    final RawSamples.Info info;
-                    try {
-                        info = new RawSamples.Info(intent.getStringExtra("info"));
-                    } catch (JSONException e) {
-                        throw new RuntimeException(e);
-                    }
+                Intent intent = (Intent) msg.obj;
+                cur = intent.getLongExtra("cur", -1);
+                total = intent.getLongExtra("total", -1);
+                final Uri targetUri = intent.getParcelableExtra("targetUri");
+                final RawSamples.Info info;
+                try {
+                    info = new RawSamples.Info(intent.getStringExtra("info"));
+                } catch (JSONException e) {
+                    throw new RuntimeException(e);
+                }
 
-                    if (progress != null)
-                        progress.setProgress(cur, total);
+                if (progress != null)
+                    progress.setProgress(cur, total);
 
-                    if (snackbar == null || !snackbar.isShownOrQueued()) {
-                        snackbar = Snackbar.make(fab, printEncodings(targetUri), Snackbar.LENGTH_LONG);
-                        snackbar.setDuration(Snackbar.LENGTH_INDEFINITE);
-                        snackbar.getView().setOnClickListener(new View.OnClickListener() {
-                            @Override
-                            public void onClick(View v) {
-                                progress = new ProgressEncoding(context, info);
-                                progress.setTitle(R.string.encoding_title);
-                                progress.setMessage(".../" + Storage.getName(context, targetUri));
-                                progress.show();
-                                progress.setProgress(cur, total);
-                                EncodingService.startIfPending(context);
-                            }
-                        });
-                        snackbar.show();
-                    } else {
-                        snackbar.setText(printEncodings(targetUri));
-                        snackbar.show();
-                    }
+                if (snackbar == null || !snackbar.isShownOrQueued()) {
+                    snackbar = Snackbar.make(fab, printEncodings(targetUri), Snackbar.LENGTH_LONG);
+                    snackbar.setDuration(Snackbar.LENGTH_INDEFINITE);
+                    snackbar.getView().setOnClickListener(new View.OnClickListener() {
+                        @Override
+                        public void onClick(View v) {
+                            progress = new ProgressEncoding(context, info);
+                            progress.setTitle(R.string.encoding_title);
+                            progress.setMessage(".../" + Storage.getName(context, targetUri));
+                            progress.show();
+                            progress.setProgress(cur, total);
+                            EncodingService.startIfPending(context);
+                        }
+                    });
+                    snackbar.show();
+                } else {
+                    snackbar.setText(printEncodings(targetUri));
+                    snackbar.show();
                 }
             }
             if (msg.what == EncodingStorage.DONE) {
@@ -313,9 +308,6 @@ public class MainActivity extends AppCompatThemeActivity {
         public void onResume() {
             if (progress != null)
                 progress.onResume(cur);
-            encodings.load();
-            if (encodings.isEmpty())
-                hide();
         }
 
         public void Error(final File in, final RawSamples.Info info, Throwable e) {
