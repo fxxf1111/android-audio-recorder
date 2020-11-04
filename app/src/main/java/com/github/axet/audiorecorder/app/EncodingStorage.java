@@ -155,18 +155,24 @@ public class EncodingStorage extends HashMap<File, EncodingStorage.Info> {
 
     public void encoding(final FileEncoder encoder, final OnFlyEncoding fly, final RawSamples.Info info, final Runnable done) {
         encoder.run(new Runnable() {
+            long last = 0;
+
             @Override
             public void run() { // progress
                 try {
-                    long cur = encoder.getCurrent();
-                    long total = encoder.getTotal();
-                    Intent intent = new Intent()
-                            .putExtra("cur", cur)
-                            .putExtra("total", total)
-                            .putExtra("info", info.save().toString())
-                            .putExtra("targetUri", fly.targetUri)
-                            .putExtra("targetFile", Storage.getName(storage.getContext(), fly.targetUri));
-                    Post(UPDATE, intent);
+                    long now = System.currentTimeMillis();
+                    if (last + 1000 < now) {
+                        last = now;
+                        long cur = encoder.getCurrent();
+                        long total = encoder.getTotal();
+                        Intent intent = new Intent()
+                                .putExtra("cur", cur)
+                                .putExtra("total", total)
+                                .putExtra("info", info.save().toString())
+                                .putExtra("targetUri", fly.targetUri)
+                                .putExtra("targetFile", Storage.getName(storage.getContext(), fly.targetUri));
+                        Post(UPDATE, intent);
+                    }
                 } catch (JSONException e) {
                     throw new RuntimeException(e);
                 }
@@ -203,13 +209,27 @@ public class EncodingStorage extends HashMap<File, EncodingStorage.Info> {
         OnFlyEncoding fly = new OnFlyEncoding(storage, targetUri, info);
         encoder = new FileEncoder(storage.getContext(), in, fly);
         filters(encoder, info);
-        encoding(encoder, fly, info, null);
+        encoding(encoder, fly, info, new Runnable() {
+            @Override
+            public void run() {
+                encoder.close();
+                encoder = null;
+                Post(EXIT, null);
+            }
+        });
     }
 
     public void saveAsWAV(File in, File out, RawSamples.Info info) {
         OnFlyEncoding fly = new OnFlyEncoding(storage, out, info);
         encoder = new FileEncoder(storage.getContext(), in, fly);
-        encoding(encoder, fly, info, null);
+        encoding(encoder, fly, info, new Runnable() {
+            @Override
+            public void run() {
+                encoder.close();
+                encoder = null;
+                Post(EXIT, null);
+            }
+        });
     }
 
     public void restart() {

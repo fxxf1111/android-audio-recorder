@@ -42,16 +42,10 @@ public class EncodingService extends PersistentService {
 
     Storage storage; // for storage path
     Handler handler = new Handler() {
-        long last = 0;
-
         @Override
         public void handleMessage(Message msg) {
             if (msg.what == EncodingStorage.UPDATE) {
-                long now = System.currentTimeMillis();
-                if (last + 1000 < now) {
-                    last = now;
-                    optimization.icon.updateIcon((Intent) msg.obj);
-                }
+                optimization.icon.updateIcon((Intent) msg.obj);
             }
             if (msg.what == EncodingStorage.DONE) {
                 EncodingStorage encodings = ((AudioApplication) getApplication()).encodings;
