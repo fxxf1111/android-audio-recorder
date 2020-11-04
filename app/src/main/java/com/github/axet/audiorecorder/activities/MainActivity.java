@@ -274,6 +274,7 @@ public class MainActivity extends AppCompatThemeActivity {
                     snackbar.setDuration(Snackbar.LENGTH_SHORT);
                     snackbar.show();
                 }
+                RecordingService.startIfPending(context);
             }
             if (msg.what == EncodingStorage.EXIT) {
                 if (progress != null) {
@@ -281,6 +282,7 @@ public class MainActivity extends AppCompatThemeActivity {
                     progress = null;
                 }
                 hide();
+                RecordingService.startIfPending(context);
             }
             if (msg.what == EncodingStorage.ERROR) {
                 Intent intent = (Intent) msg.obj;
@@ -297,6 +299,7 @@ public class MainActivity extends AppCompatThemeActivity {
                 }
                 Throwable e = (Throwable) intent.getSerializableExtra("e");
                 Error(in, info, e);
+                RecordingService.startIfPending(context);
             }
         }
 
