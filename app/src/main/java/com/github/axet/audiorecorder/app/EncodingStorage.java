@@ -114,6 +114,7 @@ public class EncodingStorage extends HashMap<File, EncodingStorage.Info> {
             Info rec = new Info(targetUri, info);
             JSONObject json = rec.save();
             FileUtils.writeStringToFile(j, json.toString(), Charset.defaultCharset());
+            put(to, rec);
             return to;
         } catch (Exception e) {
             throw new RuntimeException(e);
