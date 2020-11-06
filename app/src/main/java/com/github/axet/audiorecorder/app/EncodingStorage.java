@@ -145,9 +145,7 @@ public class EncodingStorage extends HashMap<File, EncodingStorage.Info> {
             encoding(encoder, fly, info.info, new Runnable() {
                 @Override
                 public void run() {
-                    encoder.close();
-                    encoder = null;
-                    startEncoding();
+                    restart();
                 }
             });
             return;
@@ -214,9 +212,7 @@ public class EncodingStorage extends HashMap<File, EncodingStorage.Info> {
         encoding(encoder, fly, info, new Runnable() {
             @Override
             public void run() {
-                encoder.close();
-                encoder = null;
-                Post(EXIT, null);
+                exit();
             }
         });
     }
@@ -228,11 +224,17 @@ public class EncodingStorage extends HashMap<File, EncodingStorage.Info> {
         encoding(encoder, fly, info, new Runnable() {
             @Override
             public void run() {
-                encoder.close();
-                encoder = null;
-                Post(EXIT, null);
+                exit();
             }
         });
+    }
+
+    public void exit() {
+        if (encoder != null) {
+            encoder.close();
+            encoder = null;
+        }
+        Post(EXIT, null);
     }
 
     public void restart() {
