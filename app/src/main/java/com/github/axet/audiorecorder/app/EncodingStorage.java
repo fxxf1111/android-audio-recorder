@@ -10,6 +10,7 @@ import android.util.Xml;
 
 import com.github.axet.audiolibrary.app.RawSamples;
 import com.github.axet.audiolibrary.encoders.FileEncoder;
+import com.github.axet.audiolibrary.encoders.FormatWAV;
 import com.github.axet.audiolibrary.encoders.OnFlyEncoding;
 import com.github.axet.audiolibrary.filters.AmplifierFilter;
 import com.github.axet.audiolibrary.filters.SkipSilenceFilter;
@@ -221,6 +222,7 @@ public class EncodingStorage extends HashMap<File, EncodingStorage.Info> {
     }
 
     public void saveAsWAV(File in, File out, RawSamples.Info info) {
+        out = storage.getNewFile(out, FormatWAV.EXT);
         OnFlyEncoding fly = new OnFlyEncoding(storage, out, info);
         encoder = new FileEncoder(storage.getContext(), in, fly);
         encoding(encoder, fly, info, new Runnable() {

@@ -350,7 +350,7 @@ public class RecordingActivity extends AppCompatThemeActivity {
                     d.setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
                         @Override
                         public void onClick(DialogInterface dialog, int which) {
-                            EncodingService.saveAsWAV(RecordingActivity.this, recording.storage.getTempRecording(), recording.storage.getNewFile(d.getCurrentPath(), FormatWAV.EXT), recording.getInfo());
+                            EncodingService.saveAsWAV(RecordingActivity.this, recording.storage.getTempRecording(), d.getCurrentPath(), recording.getInfo());
                         }
                     });
                     d.show();
