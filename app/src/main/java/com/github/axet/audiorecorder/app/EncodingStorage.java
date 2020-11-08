@@ -87,11 +87,11 @@ public class EncodingStorage extends HashMap<File, EncodingStorage.Info> {
         File storage = this.storage.getTempRecording().getParentFile();
         File[] ff = storage.listFiles(new FilenameFilter() {
             String start = Storage.getNameNoExt(Storage.TMP_ENC);
-            String ext = Storage.getExt(Storage.TMP_ENC);
+            String ext = "." + Storage.getExt(Storage.TMP_ENC);
 
             @Override
             public boolean accept(File dir, String name) {
-                return name.startsWith(start) && name.endsWith("." + ext);
+                return name.startsWith(start) && name.endsWith(ext);
             }
         });
         if (ff == null)
@@ -182,6 +182,7 @@ public class EncodingStorage extends HashMap<File, EncodingStorage.Info> {
             public void run() { // success
                 Storage.delete(encoder.in); // delete raw recording
                 Storage.delete(EncodingStorage.jsonFile(encoder.in)); // delete json file
+                remove(encoder.in);
                 Post(DONE, new Intent()
                         .putExtra("targetUri", fly.targetUri)
                 );
