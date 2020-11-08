@@ -10,6 +10,7 @@ import android.util.Xml;
 
 import com.github.axet.audiolibrary.app.RawSamples;
 import com.github.axet.audiolibrary.encoders.FileEncoder;
+import com.github.axet.audiolibrary.encoders.FormatWAV;
 import com.github.axet.audiolibrary.encoders.OnFlyEncoding;
 import com.github.axet.audiolibrary.filters.AmplifierFilter;
 import com.github.axet.audiolibrary.filters.SkipSilenceFilter;
@@ -86,11 +87,11 @@ public class EncodingStorage extends HashMap<File, EncodingStorage.Info> {
         File storage = this.storage.getTempRecording().getParentFile();
         File[] ff = storage.listFiles(new FilenameFilter() {
             String start = Storage.getNameNoExt(Storage.TMP_ENC);
-            String ext = Storage.getExt(Storage.TMP_ENC);
+            String ext = "." + Storage.getExt(Storage.TMP_ENC);
 
             @Override
             public boolean accept(File dir, String name) {
-                return name.startsWith(start) && name.endsWith("." + ext);
+                return name.startsWith(start) && name.endsWith(ext);
             }
         });
         if (ff == null)
@@ -144,9 +145,7 @@ public class EncodingStorage extends HashMap<File, EncodingStorage.Info> {
             encoding(encoder, fly, info.info, new Runnable() {
                 @Override
                 public void run() {
-                    encoder.close();
-                    encoder = null;
-                    startEncoding();
+                    restart();
                 }
             });
             return;
@@ -183,6 +182,7 @@ public class EncodingStorage extends HashMap<File, EncodingStorage.Info> {
             public void run() { // success
                 Storage.delete(encoder.in); // delete raw recording
                 Storage.delete(EncodingStorage.jsonFile(encoder.in)); // delete json file
+                remove(encoder.in);
                 Post(DONE, new Intent()
                         .putExtra("targetUri", fly.targetUri)
                 );
@@ -213,24 +213,29 @@ public class EncodingStorage extends HashMap<File, EncodingStorage.Info> {
         encoding(encoder, fly, info, new Runnable() {
             @Override
             public void run() {
-                encoder.close();
-                encoder = null;
-                Post(EXIT, null);
+                exit();
             }
         });
     }
 
     public void saveAsWAV(File in, File out, RawSamples.Info info) {
+        out = storage.getNewFile(out, FormatWAV.EXT);
         OnFlyEncoding fly = new OnFlyEncoding(storage, out, info);
         encoder = new FileEncoder(storage.getContext(), in, fly);
         encoding(encoder, fly, info, new Runnable() {
             @Override
             public void run() {
-                encoder.close();
-                encoder = null;
-                Post(EXIT, null);
+                exit();
             }
         });
+    }
+
+    public void exit() {
+        if (encoder != null) {
+            encoder.close();
+            encoder = null;
+        }
+        Post(EXIT, null);
     }
 
     public void restart() {

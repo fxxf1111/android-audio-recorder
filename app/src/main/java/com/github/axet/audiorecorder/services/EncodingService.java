@@ -209,8 +209,7 @@ public class EncodingService extends PersistentService {
         } else if (a.equals(SAVE_AS_WAV)) {
             try {
                 File in = (File) intent.getSerializableExtra("in");
-                File out = (File) intent.getSerializableExtra("out"); // dir
-                out = storage.getNewFile(out, FormatWAV.EXT);
+                File out = (File) intent.getSerializableExtra("out");
                 RawSamples.Info info = new RawSamples.Info(intent.getStringExtra("info"));
                 if (encodings.encoder == null)
                     encodings.saveAsWAV(in, out, info);
