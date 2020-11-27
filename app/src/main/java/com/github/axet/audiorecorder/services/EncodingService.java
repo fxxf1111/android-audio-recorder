@@ -191,6 +191,7 @@ public class EncodingService extends PersistentService {
         EncodingStorage encodings = ((AudioApplication) getApplication()).encodings;
         synchronized (encodings.handlers) {
             encodings.handlers.remove(handler);
+            handler.removeCallbacksAndMessages(null);
         }
     }
 
