@@ -205,6 +205,7 @@ public class MainActivity extends AppCompatThemeActivity {
         public void close() {
             synchronized (encodings.handlers) {
                 encodings.handlers.remove(this);
+                removeCallbacksAndMessages(null);
             }
         }
 

@@ -107,7 +107,7 @@ public class SettingsActivity extends AppCompatSettingsThemeActivity implements 
         if (key.equals(AudioApplication.PREFERENCE_RATE)) {
             int sampleRate = Integer.parseInt(sharedPreferences.getString(AudioApplication.PREFERENCE_RATE, ""));
             if (sampleRate != Sound.getValidRecordRate(Sound.getInMode(this), sampleRate))
-                Toast.Error(this, "Not supported Hz");
+                Toast.Text(this, "Not supported Hz");
         }
     }
 
