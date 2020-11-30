@@ -196,7 +196,7 @@ public class MainActivity extends AppCompatThemeActivity {
         public void registerReceiver(Context context) {
             this.context = context;
             storage = new Storage(context);
-            encodings = ((AudioApplication) context.getApplicationContext()).encodings;
+            encodings = AudioApplication.from(context).encodings;
             synchronized (encodings.handlers) {
                 encodings.handlers.add(this);
             }
