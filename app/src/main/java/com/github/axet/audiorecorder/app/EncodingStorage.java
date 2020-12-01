@@ -219,7 +219,6 @@ public class EncodingStorage extends HashMap<File, EncodingStorage.Info> {
     }
 
     public void saveAsWAV(File in, File out, RawSamples.Info info) {
-        out = storage.getNewFile(out, FormatWAV.EXT);
         OnFlyEncoding fly = new OnFlyEncoding(storage, out, info);
         encoder = new FileEncoder(storage.getContext(), in, fly);
         encoding(encoder, fly, info, new Runnable() {

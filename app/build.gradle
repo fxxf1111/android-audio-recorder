@@ -9,15 +9,15 @@ android {
         applicationId "com.github.axet.audiorecorder"
         minSdkVersion 9
         targetSdkVersion 29
-        versionCode            347
-        versionName            "3.3.22"
+        versionCode 347
+        versionName "3.3.22"
     }
     signingConfigs {
         release {
-            storeFile file(prop('RELEASE_STORE_FILE')?:'none')
-            storePassword prop('RELEASE_STORE_PASSWORD')
-            keyAlias prop('RELEASE_KEY_ALIAS')
-            keyPassword prop('RELEASE_KEY_PASSWORD')
+            storeFile file(project.findProperty('RELEASE_STORE_FILE')?:'none')
+            storePassword project.findProperty('RELEASE_STORE_PASSWORD')
+            keyAlias project.findProperty('RELEASE_KEY_ALIAS')
+            keyPassword project.findProperty('RELEASE_KEY_PASSWORD')
         }
     }
     buildTypes {

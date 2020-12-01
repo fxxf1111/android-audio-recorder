@@ -45,7 +45,6 @@ import com.github.axet.androidlibrary.widgets.Toast;
 import com.github.axet.audiolibrary.app.RawSamples;
 import com.github.axet.audiolibrary.app.Sound;
 import com.github.axet.audiolibrary.encoders.Factory;
-import com.github.axet.audiolibrary.encoders.FormatWAV;
 import com.github.axet.audiolibrary.widgets.PitchView;
 import com.github.axet.audiorecorder.BuildConfig;
 import com.github.axet.audiorecorder.R;
@@ -99,6 +98,8 @@ public class RecordingActivity extends AppCompatThemeActivity {
     RecordingStorage recording;
 
     RecordingReceiver receiver;
+
+    MainActivity.ProgressHandler progress;
 
     AlertDialog muted;
     Handler handler = new Handler() {
@@ -324,10 +325,15 @@ public class RecordingActivity extends AppCompatThemeActivity {
 
     public void Error(Throwable e) {
         Log.e(TAG, "error", e);
-        Error(toMessage(e));
+        Error(recording.storage.getTempRecording(), toMessage(e));
     }
 
-    public void Error(String msg) {
+    public void Error(File in, Throwable e) {
+        Log.e(TAG, "error", e);
+        Error(in, toMessage(e));
+    }
+
+    public void Error(File in, String msg) {
         ErrorDialog builder = new ErrorDialog(this, msg);
         builder.setOnCancelListener(new DialogInterface.OnCancelListener() {
             @Override
@@ -341,7 +347,6 @@ public class RecordingActivity extends AppCompatThemeActivity {
                 finish();
             }
         });
-        final File in = recording.storage.getTempRecording();
         if (in.length() > 0) {
             builder.setNeutralButton(R.string.save_as_wav, new DialogInterface.OnClickListener() {
                 @Override
@@ -350,7 +355,9 @@ public class RecordingActivity extends AppCompatThemeActivity {
                     d.setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
                         @Override
                         public void onClick(DialogInterface dialog, int which) {
-                            EncodingService.saveAsWAV(RecordingActivity.this, recording.storage.getTempRecording(), d.getCurrentPath(), recording.getInfo());
+                            File to = new File(d.getCurrentPath(), Storage.getName(RecordingActivity.this, recording.targetUri));
+                            recording.targetUri = Uri.fromFile(to);
+                            EncodingService.saveAsWAV(RecordingActivity.this, recording.storage.getTempRecording(), to, recording.getInfo());
                         }
                     });
                     d.show();
@@ -624,6 +631,9 @@ public class RecordingActivity extends AppCompatThemeActivity {
             if (editSample != -1)
                 edit(true, false);
         }
+
+        if (progress != null)
+            progress.onResume();
     }
 
     @Override
@@ -633,6 +643,8 @@ public class RecordingActivity extends AppCompatThemeActivity {
         recording.updateBufferSize(true);
         editPlay(false);
         pitch.stop();
+        if (progress != null)
+            progress.onPause();
     }
 
     void stopRecording(String status) {
@@ -887,6 +899,11 @@ public class RecordingActivity extends AppCompatThemeActivity {
             receiver = null;
         }
 
+        if (progress != null) {
+            progress.close();
+            progress = null;
+        }
+
         RecordingService.stopRecording(this);
 
         if (pscl != null) {
@@ -985,9 +1002,39 @@ public class RecordingActivity extends AppCompatThemeActivity {
             return;
         }
 
-        EncodingService.startEncoding(this, in, recording.targetUri, recording.getInfo());
+        final File encoding = EncodingService.startEncoding(this, in, recording.targetUri, recording.getInfo());
 
-        finish();
+        if (recordSoundIntent != null) {
+            if (progress != null)
+                progress.close();
+            progress = new MainActivity.ProgressHandler() {
+                @Override
+                public void onDone(Uri targetUri) {
+                    super.onDone(targetUri);
+                    if (targetUri.equals(recording.targetUri))
+                        done.run();
+                }
+
+                @Override
+                public void onExit() {
+                    super.onExit();
+                    done.run();
+                }
+
+                @Override
+                public void onError(File in, RawSamples.Info info, Throwable e) {
+                    if (in.equals(encoding))
+                        RecordingActivity.this.Error(encoding, e); // show error for current encoding
+                    else
+                        Error(in, info, e); // show error for any encoding
+                }
+            };
+            progress.registerReceiver(this);
+            progress.show(recording.targetUri, recording.getInfo());
+            progress.progress.setCancelable(false);
+        } else {
+            done.run();
+        }
     }
 
     @Override
