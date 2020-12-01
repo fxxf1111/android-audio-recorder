@@ -179,7 +179,7 @@ public class MainActivity extends AppCompatThemeActivity {
                 }
             }
             text.setText(AudioApplication.formatSize(getContext(), current.getAverageSpeed() * info.bps / Byte.SIZE) + getContext().getString(R.string.per_second));
-            super.setProgress((int) (cur * getMax() / total));
+            super.setProgress(total == 0 ? 0 : (int) (cur * getMax() / total));
         }
     }
 

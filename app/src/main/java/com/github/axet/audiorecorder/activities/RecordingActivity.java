@@ -96,6 +96,7 @@ public class RecordingActivity extends AppCompatThemeActivity {
     ScreenReceiver screen;
 
     RecordingStorage recording;
+    File encoding;
 
     RecordingReceiver receiver;
 
@@ -1002,12 +1003,19 @@ public class RecordingActivity extends AppCompatThemeActivity {
             return;
         }
 
-        final File encoding = EncodingService.startEncoding(this, in, recording.targetUri, recording.getInfo());
-
         if (recordSoundIntent != null) {
             if (progress != null)
                 progress.close();
             progress = new MainActivity.ProgressHandler() {
+                @Override
+                public void onUpdate(Uri targetUri, RawSamples.Info info) {
+                    super.onUpdate(targetUri, info);
+                    if (progress == null) {
+                        show(targetUri, info);
+                        progress.setCancelable(false);
+                    }
+                }
+
                 @Override
                 public void onDone(Uri targetUri) {
                     super.onDone(targetUri);
@@ -1030,11 +1038,10 @@ public class RecordingActivity extends AppCompatThemeActivity {
                 }
             };
             progress.registerReceiver(this);
-            progress.show(recording.targetUri, recording.getInfo());
-            progress.progress.setCancelable(false);
         } else {
             done.run();
         }
+        encoding = EncodingService.startEncoding(this, in, recording.targetUri, recording.getInfo());
     }
 
     @Override
