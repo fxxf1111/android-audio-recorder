@@ -179,7 +179,7 @@ public class MainActivity extends AppCompatThemeActivity {
                 }
             }
             text.setText(AudioApplication.formatSize(getContext(), current.getAverageSpeed() * info.bps / Byte.SIZE) + getContext().getString(R.string.per_second));
-            super.setProgress((int) (cur * getMax() / total));
+            super.setProgress(total == 0 ? 0 : (int) (cur * getMax() / total));
         }
     }
 
@@ -357,42 +357,33 @@ public class MainActivity extends AppCompatThemeActivity {
         }
 
         @Override
-        public void handleMessage(Message msg) {
-            super.handleMessage(msg);
-            if (msg.what == EncodingStorage.UPDATE) {
-                Intent intent = (Intent) msg.obj;
-                final Uri targetUri = intent.getParcelableExtra("targetUri");
-                final RawSamples.Info info;
-                try {
-                    info = new RawSamples.Info(intent.getStringExtra("info"));
-                } catch (JSONException e) {
-                    throw new RuntimeException(e);
-                }
-                if (snackbar == null || !snackbar.isShownOrQueued()) {
-                    snackbar = Snackbar.make(fab, printEncodings(targetUri), Snackbar.LENGTH_LONG);
-                    snackbar.setDuration(Snackbar.LENGTH_INDEFINITE);
-                    snackbar.getView().setOnClickListener(new View.OnClickListener() {
-                        @Override
-                        public void onClick(View v) {
-                            show(targetUri, info);
-                            EncodingService.startIfPending(context);
-                        }
-                    });
-                    snackbar.show();
-                } else {
-                    snackbar.setText(printEncodings(targetUri));
-                    snackbar.show();
-                }
+        public void onUpdate(final Uri targetUri, final RawSamples.Info info) {
+            super.onUpdate(targetUri, info);
+            if (snackbar == null || !snackbar.isShownOrQueued()) {
+                snackbar = Snackbar.make(fab, printEncodings(targetUri), Snackbar.LENGTH_LONG);
+                snackbar.setDuration(Snackbar.LENGTH_INDEFINITE);
+                snackbar.getView().setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        show(targetUri, info);
+                        EncodingService.startIfPending(context);
+                    }
+                });
+                snackbar.show();
+            } else {
+                snackbar.setText(printEncodings(targetUri));
+                snackbar.show();
             }
-            if (msg.what == EncodingStorage.DONE) {
-                Intent intent = (Intent) msg.obj;
-                final Uri targetUri = intent.getParcelableExtra("targetUri");
-                recordings.load(false, null);
-                if (snackbar != null && snackbar.isShownOrQueued()) {
-                    snackbar.setText(printEncodings(targetUri));
-                    snackbar.setDuration(Snackbar.LENGTH_SHORT);
-                    snackbar.show();
-                }
+        }
+
+        @Override
+        public void onDone(Uri targetUri) {
+            super.onDone(targetUri);
+            recordings.load(false, null);
+            if (snackbar != null && snackbar.isShownOrQueued()) {
+                snackbar.setText(printEncodings(targetUri));
+                snackbar.setDuration(Snackbar.LENGTH_SHORT);
+                snackbar.show();
             }
         }
 
