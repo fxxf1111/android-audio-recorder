@@ -89,7 +89,7 @@ public class EncodingService extends PersistentService {
         stop(context, new Intent(context, EncodingService.class));
     }
 
-    public static void startEncoding(Context context, File in, Uri targetUri, RawSamples.Info info) {
+    public static File startEncoding(Context context, File in, Uri targetUri, RawSamples.Info info) {
         try {
             EncodingStorage encodings = ((AudioApplication) context.getApplicationContext()).encodings;
             in = encodings.save(in, targetUri, info);
@@ -98,6 +98,7 @@ public class EncodingService extends PersistentService {
                     .putExtra("targetUri", targetUri)
                     .putExtra("info", info.save().toString())
             );
+            return in;
         } catch (JSONException e) {
             throw new RuntimeException(e);
         }

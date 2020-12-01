@@ -40,6 +40,7 @@ import com.github.axet.androidlibrary.widgets.ErrorDialog;
 import com.github.axet.androidlibrary.widgets.OpenFileDialog;
 import com.github.axet.androidlibrary.widgets.SearchView;
 import com.github.axet.audiolibrary.app.RawSamples;
+import com.github.axet.audiolibrary.encoders.FormatWAV;
 import com.github.axet.audiorecorder.R;
 import com.github.axet.audiorecorder.app.AudioApplication;
 import com.github.axet.audiorecorder.app.EncodingStorage;
@@ -108,6 +109,7 @@ public class MainActivity extends AppCompatThemeActivity {
             setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
             setIndeterminate(false);
             setMax(100);
+            setTitle(R.string.encoding_title);
             this.info = info;
         }
 
@@ -181,22 +183,21 @@ public class MainActivity extends AppCompatThemeActivity {
         }
     }
 
-    public class EncodingDialog extends Handler {
+    public static class ProgressHandler extends Handler {
         Context context;
-        Snackbar snackbar;
         ProgressEncoding progress;
         long cur;
         long total;
         Storage storage;
         EncodingStorage encodings;
 
-        public EncodingDialog() {
+        public ProgressHandler() {
         }
 
         public void registerReceiver(Context context) {
             this.context = context;
             storage = new Storage(context);
-            encodings = ((AudioApplication) context.getApplicationContext()).encodings;
+            encodings = AudioApplication.from(context).encodings;
             synchronized (encodings.handlers) {
                 encodings.handlers.add(this);
             }
@@ -238,52 +239,25 @@ public class MainActivity extends AppCompatThemeActivity {
                 } catch (JSONException e) {
                     throw new RuntimeException(e);
                 }
-
                 if (progress != null)
                     progress.setProgress(cur, total);
-
-                if (snackbar == null || !snackbar.isShownOrQueued()) {
-                    snackbar = Snackbar.make(fab, printEncodings(targetUri), Snackbar.LENGTH_LONG);
-                    snackbar.setDuration(Snackbar.LENGTH_INDEFINITE);
-                    snackbar.getView().setOnClickListener(new View.OnClickListener() {
-                        @Override
-                        public void onClick(View v) {
-                            progress = new ProgressEncoding(context, info);
-                            progress.setTitle(R.string.encoding_title);
-                            progress.setMessage(".../" + Storage.getName(context, targetUri));
-                            progress.show();
-                            progress.setProgress(cur, total);
-                            EncodingService.startIfPending(context);
-                        }
-                    });
-                    snackbar.show();
-                } else {
-                    snackbar.setText(printEncodings(targetUri));
-                    snackbar.show();
-                }
+                onUpdate(targetUri, info);
             }
             if (msg.what == EncodingStorage.DONE) {
                 Intent intent = (Intent) msg.obj;
+                final Uri targetUri = intent.getParcelableExtra("targetUri");
                 if (progress != null) {
                     progress.dismiss();
                     progress = null;
                 }
-                final Uri targetUri = intent.getParcelableExtra("targetUri");
-                recordings.load(false, null);
-                if (snackbar != null && snackbar.isShownOrQueued()) {
-                    snackbar.setText(printEncodings(targetUri));
-                    snackbar.setDuration(Snackbar.LENGTH_SHORT);
-                    snackbar.show();
-                }
-                RecordingService.startIfPending(context);
+                onDone(targetUri);
             }
             if (msg.what == EncodingStorage.EXIT) {
                 if (progress != null) {
                     progress.dismiss();
                     progress = null;
                 }
-                hide();
-                RecordingService.startIfPending(context);
+                onExit();
             }
             if (msg.what == EncodingStorage.ERROR) {
                 Intent intent = (Intent) msg.obj;
@@ -299,9 +273,32 @@ public class MainActivity extends AppCompatThemeActivity {
                     throw new RuntimeException(e);
                 }
                 Throwable e = (Throwable) intent.getSerializableExtra("e");
-                Error(in, info, e);
-                RecordingService.startIfPending(context);
+                onError(in, info, e);
             }
+        }
+
+        public void onUpdate(Uri targetUri, RawSamples.Info info) {
+        }
+
+        public void onError(File in, RawSamples.Info info, Throwable e) {
+            Error(in, info, e);
+            RecordingService.startIfPending(context);
+        }
+
+        public void onExit() {
+            hide();
+            RecordingService.startIfPending(context);
+        }
+
+        public void onDone(Uri targetUri) {
+            RecordingService.startIfPending(context);
+        }
+
+        public void show(Uri targetUri, RawSamples.Info info) {
+            progress = new ProgressEncoding(context, info);
+            progress.setMessage(".../" + Storage.getName(context, targetUri));
+            progress.show();
+            progress.setProgress(cur, total);
         }
 
         public void onPause() {
@@ -334,7 +331,8 @@ public class MainActivity extends AppCompatThemeActivity {
                         d.setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
                             @Override
                             public void onClick(DialogInterface dialog, int which) {
-                                EncodingService.saveAsWAV(context, in, d.getCurrentPath(), info);
+                                File to = storage.getNewFile(d.getCurrentPath(), FormatWAV.EXT);
+                                EncodingService.saveAsWAV(context, in, to, info);
                             }
                         });
                         d.show();
@@ -345,6 +343,62 @@ public class MainActivity extends AppCompatThemeActivity {
         }
 
         public void hide() {
+            if (progress != null) {
+                progress.dismiss();
+                progress = null;
+            }
+        }
+    }
+
+    public class EncodingDialog extends ProgressHandler {
+        Snackbar snackbar;
+
+        public EncodingDialog() {
+        }
+
+        @Override
+        public void handleMessage(Message msg) {
+            super.handleMessage(msg);
+            if (msg.what == EncodingStorage.UPDATE) {
+                Intent intent = (Intent) msg.obj;
+                final Uri targetUri = intent.getParcelableExtra("targetUri");
+                final RawSamples.Info info;
+                try {
+                    info = new RawSamples.Info(intent.getStringExtra("info"));
+                } catch (JSONException e) {
+                    throw new RuntimeException(e);
+                }
+                if (snackbar == null || !snackbar.isShownOrQueued()) {
+                    snackbar = Snackbar.make(fab, printEncodings(targetUri), Snackbar.LENGTH_LONG);
+                    snackbar.setDuration(Snackbar.LENGTH_INDEFINITE);
+                    snackbar.getView().setOnClickListener(new View.OnClickListener() {
+                        @Override
+                        public void onClick(View v) {
+                            show(targetUri, info);
+                            EncodingService.startIfPending(context);
+                        }
+                    });
+                    snackbar.show();
+                } else {
+                    snackbar.setText(printEncodings(targetUri));
+                    snackbar.show();
+                }
+            }
+            if (msg.what == EncodingStorage.DONE) {
+                Intent intent = (Intent) msg.obj;
+                final Uri targetUri = intent.getParcelableExtra("targetUri");
+                recordings.load(false, null);
+                if (snackbar != null && snackbar.isShownOrQueued()) {
+                    snackbar.setText(printEncodings(targetUri));
+                    snackbar.setDuration(Snackbar.LENGTH_SHORT);
+                    snackbar.show();
+                }
+            }
+        }
+
+        @Override
+        public void hide() {
+            super.hide();
             if (snackbar != null) {
                 snackbar.dismiss();
                 snackbar = null;
