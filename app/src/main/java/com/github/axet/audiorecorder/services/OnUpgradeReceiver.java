@@ -15,5 +15,6 @@ public class OnUpgradeReceiver extends BroadcastReceiver {
     public void onReceive(Context context, Intent intent) {
         Log.d(TAG, "onReceive");
         RecordingService.startIfPending(context);
+        ControlsService.startIfEnabled(context);
     }
 }

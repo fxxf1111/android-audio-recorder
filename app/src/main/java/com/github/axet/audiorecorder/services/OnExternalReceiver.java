@@ -30,5 +30,6 @@ public class OnExternalReceiver extends BroadcastReceiver {
             return;
 
         RecordingService.startIfPending(context);
+        ControlsService.startIfEnabled(context);
     }
 }

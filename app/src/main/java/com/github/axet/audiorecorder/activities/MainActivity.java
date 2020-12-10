@@ -46,6 +46,7 @@ import com.github.axet.audiorecorder.app.AudioApplication;
 import com.github.axet.audiorecorder.app.EncodingStorage;
 import com.github.axet.audiorecorder.app.Recordings;
 import com.github.axet.audiorecorder.app.Storage;
+import com.github.axet.audiorecorder.services.ControlsService;
 import com.github.axet.audiorecorder.services.EncodingService;
 import com.github.axet.audiorecorder.services.RecordingService;
 
@@ -466,6 +467,7 @@ public class MainActivity extends AppCompatThemeActivity {
 
         RecordingService.startIfPending(this);
         EncodingService.startIfPending(this);
+        ControlsService.startIfEnabled(this);
 
         try {
             new Recordings.ExoLoader(this, false);

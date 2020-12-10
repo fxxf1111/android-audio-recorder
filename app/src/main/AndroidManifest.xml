@@ -25,6 +25,7 @@
         android:theme="@style/RecThemeLight">
         <service android:name=".services.RecordingService" />
         <service android:name=".services.EncodingService" />
+        <service android:name=".services.ControlsService" />
         <service
             android:name=".services.TileService"
             android:icon="@drawable/ic_mic_24dp"
