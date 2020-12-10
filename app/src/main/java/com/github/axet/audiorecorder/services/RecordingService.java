@@ -48,13 +48,6 @@ public class RecordingService extends PersistentService {
 
     Storage storage; // for storage path
 
-    public static void startIfEnabled(Context context) { // notification controls enabled?
-        SharedPreferences shared = PreferenceManager.getDefaultSharedPreferences(context);
-        if (!shared.getBoolean(AudioApplication.PREFERENCE_CONTROLS, false))
-            return;
-        start(context);
-    }
-
     public static void startIfPending(Context context) { // if recording pending or controls enabled
         Storage storage = new Storage(context);
         if (storage.recordingPending()) {
@@ -75,7 +68,6 @@ public class RecordingService extends PersistentService {
             startService(context, d, false, null);
             return;
         }
-        startIfEnabled(context);
     }
 
     public static void start(Context context) { // start persistent icon service
@@ -91,11 +83,6 @@ public class RecordingService extends PersistentService {
     }
 
     public static void stopRecording(Context context) {
-        SharedPreferences shared = PreferenceManager.getDefaultSharedPreferences(context);
-        if (shared.getBoolean(AudioApplication.PREFERENCE_CONTROLS, false)) {
-            start(context);
-            return;
-        }
         stop(context);
     }
 
@@ -115,7 +102,7 @@ public class RecordingService extends PersistentService {
     public void onCreateOptimization() {
         storage = new Storage(this);
         optimization = new OptimizationPreferenceCompat.ServiceReceiver(this, NOTIFICATION_RECORDING_ICON, null, AudioApplication.PREFERENCE_NEXT) {
-            Intent notificationIntent;
+            Intent notificationIntent; // speed up, update notification text without calling notify()
 
             @Override
             public void onCreateIcon(Service service, int id) {
@@ -144,48 +131,36 @@ public class RecordingService extends PersistentService {
 
                         String title;
                         String text;
-                        if (targetFile == null) {  // buildPersistentIcon();
-                            title = getString(R.string.app_name);
-                            Uri f = storage.getStoragePath();
-                            long free = Storage.getFree(context, f);
-                            long sec = Storage.average(context, free);
-                            text = AudioApplication.formatFree(context, free, sec);
-                            builder = new RemoteNotificationCompat.Low(context, R.layout.notifictaion);
-                            builder.setViewVisibility(R.id.notification_record, View.VISIBLE);
-                            builder.setViewVisibility(R.id.notification_pause, View.GONE);
-                            main = PendingIntent.getActivity(context, 0, new Intent(context, MainActivity.class), PendingIntent.FLAG_UPDATE_CURRENT);
-                        } else { // buildRecordingIcon();
-                            if (recording)
-                                title = getString(R.string.recording_title);
-                            else
-                                title = getString(R.string.pause_title);
-                            if (duration != null) {
-                                title += " (" + duration + ")";
-                                if (recording && notificationIntent != null && notificationIntent.hasExtra("duration") && notificationIntent.getBooleanExtra("recording", false)) { // speed up
-                                    try {
-                                        RemoteViews a = new RemoteViews(getPackageName(), icon.notification.contentView.getLayoutId());
+                        if (recording)
+                            title = getString(R.string.recording_title);
+                        else
+                            title = getString(R.string.pause_title);
+                        if (duration != null) {
+                            title += " (" + duration + ")";
+                            if (recording && notificationIntent != null && notificationIntent.hasExtra("duration") && notificationIntent.getBooleanExtra("recording", false)) {
+                                try {
+                                    RemoteViews a = new RemoteViews(getPackageName(), icon.notification.contentView.getLayoutId());
+                                    a.setTextViewText(R.id.title, title);
+                                    RemoteViewsCompat.mergeRemoteViews(icon.notification.contentView, a);
+                                    if (Build.VERSION.SDK_INT >= 16 && icon.notification.bigContentView != null) {
+                                        a = new RemoteViews(getPackageName(), icon.notification.bigContentView.getLayoutId());
                                         a.setTextViewText(R.id.title, title);
-                                        RemoteViewsCompat.mergeRemoteViews(icon.notification.contentView, a);
-                                        if (Build.VERSION.SDK_INT >= 16 && icon.notification.bigContentView != null) {
-                                            a = new RemoteViews(getPackageName(), icon.notification.bigContentView.getLayoutId());
-                                            a.setTextViewText(R.id.title, title);
-                                            RemoteViewsCompat.mergeRemoteViews(icon.notification.bigContentView, a);
-                                        }
-                                        return icon.notification;
-                                    } catch (RuntimeException e) {
-                                        Log.d(TAG, "merge failed", e);
+                                        RemoteViewsCompat.mergeRemoteViews(icon.notification.bigContentView, a);
                                     }
+                                    return icon.notification;
+                                } catch (RuntimeException e) {
+                                    Log.d(TAG, "merge failed", e);
                                 }
                             }
-                            text = ".../" + targetFile;
-                            builder = new RemoteNotificationCompat.Builder(context, R.layout.notifictaion);
-                            builder.setViewVisibility(R.id.notification_record, View.GONE);
-                            builder.setViewVisibility(R.id.notification_pause, View.VISIBLE);
-                            main = PendingIntent.getService(context, 0, new Intent(context, RecordingService.class)
-                                    .setAction(SHOW_ACTIVITY)
-                                    .putExtra("targetFile", targetFile)
-                                    .putExtra("recording", recording), PendingIntent.FLAG_UPDATE_CURRENT);
                         }
+                        text = ".../" + targetFile;
+                        builder = new RemoteNotificationCompat.Builder(context, R.layout.notifictaion);
+                        builder.setViewVisibility(R.id.notification_record, View.GONE);
+                        builder.setViewVisibility(R.id.notification_pause, View.VISIBLE);
+                        main = PendingIntent.getService(context, 0, new Intent(context, RecordingService.class)
+                                .setAction(SHOW_ACTIVITY)
+                                .putExtra("targetFile", targetFile)
+                                .putExtra("recording", recording), PendingIntent.FLAG_UPDATE_CURRENT);
 
                         PendingIntent pe = PendingIntent.getService(context, 0,
                                 new Intent(context, RecordingService.class).setAction(PAUSE_BUTTON),

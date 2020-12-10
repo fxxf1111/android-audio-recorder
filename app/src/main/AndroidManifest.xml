@@ -19,11 +19,13 @@
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
+        android:requestLegacyExternalStorage="true"
         android:roundIcon="@mipmap/ic_launcher"
         android:supportsRtl="true"
         android:theme="@style/RecThemeLight">
         <service android:name=".services.RecordingService" />
         <service android:name=".services.EncodingService" />
+        <service android:name=".services.ControlsService" />
         <service
             android:name=".services.TileService"
             android:icon="@drawable/ic_mic_24dp"

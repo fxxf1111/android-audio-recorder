@@ -32,6 +32,7 @@ public class AudioApplication extends com.github.axet.audiolibrary.app.MainAppli
     public static final String PREFERENCE_NEXT = "next";
 
     public NotificationChannelCompat channelStatus;
+    public NotificationChannelCompat channelPersistent;
     public RecordingStorage recording;
     public EncodingStorage encodings;
 
@@ -45,6 +46,7 @@ public class AudioApplication extends com.github.axet.audiolibrary.app.MainAppli
         Log.d(TAG, "onCreate");
 
         channelStatus = new NotificationChannelCompat(this, "status", "Status", NotificationManagerCompat.IMPORTANCE_LOW);
+        channelPersistent = new NotificationChannelCompat(this, "persistent", "Persistent", NotificationManagerCompat.IMPORTANCE_LOW);
         encodings = new EncodingStorage(this);
 
         switch (getVersion(PREFERENCE_VERSION, R.xml.pref_general)) {

@@ -29,6 +29,7 @@ import com.github.axet.audiolibrary.widgets.RecordingVolumePreference;
 import com.github.axet.audiorecorder.R;
 import com.github.axet.audiorecorder.app.AudioApplication;
 import com.github.axet.audiorecorder.app.Storage;
+import com.github.axet.audiorecorder.services.ControlsService;
 import com.github.axet.audiorecorder.services.RecordingService;
 
 import java.lang.reflect.Array;
@@ -98,9 +99,9 @@ public class SettingsActivity extends AppCompatSettingsThemeActivity implements 
         super.onSharedPreferenceChanged(sharedPreferences, key);
         if (key.equals(AudioApplication.PREFERENCE_CONTROLS)) {
             if (sharedPreferences.getBoolean(AudioApplication.PREFERENCE_CONTROLS, false))
-                RecordingService.start(this);
+                ControlsService.start(this);
             else
-                RecordingService.stop(this);
+                ControlsService.stop(this);
         }
         if (key.equals(AudioApplication.PREFERENCE_STORAGE))
             storage.migrateLocalStorageDialog(this);
@@ -249,6 +250,9 @@ public class SettingsActivity extends AppCompatSettingsThemeActivity implements 
             super.onResume();
             SilencePreferenceCompat silent = (SilencePreferenceCompat) findPreference(AudioApplication.PREFERENCE_SILENT);
             silent.onResume();
+            Preference controls = findPreference(AudioApplication.PREFERENCE_CONTROLS);
+            if (Build.VERSION.SDK_INT < 21)
+                controls.setVisible(false);
         }
     }
 }

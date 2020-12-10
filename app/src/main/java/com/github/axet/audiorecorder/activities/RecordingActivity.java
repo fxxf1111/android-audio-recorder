@@ -52,6 +52,7 @@ import com.github.axet.audiorecorder.app.AudioApplication;
 import com.github.axet.audiorecorder.app.RecordingStorage;
 import com.github.axet.audiorecorder.app.Storage;
 import com.github.axet.audiorecorder.services.BluetoothReceiver;
+import com.github.axet.audiorecorder.services.ControlsService;
 import com.github.axet.audiorecorder.services.EncodingService;
 import com.github.axet.audiorecorder.services.RecordingService;
 
@@ -906,6 +907,7 @@ public class RecordingActivity extends AppCompatThemeActivity {
         }
 
         RecordingService.stopRecording(this);
+        ControlsService.startIfEnabled(this);
 
         if (pscl != null) {
             TelephonyManager tm = (TelephonyManager) this.getSystemService(Context.TELEPHONY_SERVICE);
@@ -941,6 +943,7 @@ public class RecordingActivity extends AppCompatThemeActivity {
             recording.startRecording();
 
             RecordingService.startService(this, Storage.getName(this, recording.targetUri), true, duration);
+            ControlsService.hideIcon(this);
         } catch (RuntimeException e) {
             Toast.Error(RecordingActivity.this, e);
             finish();

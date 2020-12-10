@@ -2,15 +2,15 @@ apply plugin: 'com.android.application'
 apply plugin: 'com.github.axet.dxplugin'
 
 android {
-    compileSdkVersion 25
+    compileSdkVersion 29
     buildToolsVersion '28.0.3'
 
     defaultConfig {
         applicationId "com.github.axet.audiorecorder"
         minSdkVersion 9
         targetSdkVersion 29
-        versionCode   349
-        versionName   "3.3.24"
+        versionCode    350
+        versionName    "3.4.0"
     }
     signingConfigs {
         release {
@@ -54,6 +54,6 @@ android {
 dependencies {
     testImplementation 'junit:junit:4.12'
     implementation 'com.github.axet:android-audio-library:1.0.178' // implementation project(':android-audio-library')
-    implementation ('com.github.axet:wget:1.6.1') { exclude group: 'org.json', module: 'json' }
+    implementation ('com.github.axet:wget:1.7.0') { exclude group: 'org.json', module: 'json' }
     assets('com.google.android.exoplayer:exoplayer:2.7.3') { exclude group: 'com.android.support' }
 }
