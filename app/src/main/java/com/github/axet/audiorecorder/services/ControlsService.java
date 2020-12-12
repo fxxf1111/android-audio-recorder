@@ -20,6 +20,7 @@ import android.view.WindowManager;
 import android.widget.RemoteViews;
 
 import com.github.axet.androidlibrary.app.AlarmManager;
+import com.github.axet.androidlibrary.app.NotificationManagerCompat;
 import com.github.axet.androidlibrary.app.ProximityShader;
 import com.github.axet.androidlibrary.preferences.OptimizationPreferenceCompat;
 import com.github.axet.androidlibrary.services.PersistentService;
@@ -91,7 +92,28 @@ public class ControlsService extends PersistentService {
                             intent = new Intent();
                         else
                             intent = null;
-                        super.updateIcon(intent);
+                        NotificationManagerCompat nm = NotificationManagerCompat.from(context);
+                        if (intent != null || isOptimization()) {
+                            Notification n = build(intent);
+                            if (notification == null) {
+                                nm.notify(id, n);
+                            } else {
+                                String co = NotificationChannelCompat.getChannelId(notification);
+                                String cn = NotificationChannelCompat.getChannelId(n);
+                                if (co == null && cn != null || co != null && cn == null || co != null && cn != null && !co.equals(cn))
+                                    nm.cancel(id);
+                                nm.notify(id, n);
+                            }
+                            notification = n;
+                        } else {
+                            hideIcon();
+                        }
+                    }
+
+                    public void hideIcon() {
+                        NotificationManagerCompat nm = NotificationManagerCompat.from(context);
+                        nm.cancel(id);
+                        notification = null;
                     }
 
                     @Override
