@@ -70,8 +70,6 @@ public class MainActivity extends AppCompatThemeActivity {
 
     public static void startActivity(Context context) {
         Intent i = new Intent(context, MainActivity.class);
-        i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        i.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
         context.startActivity(i);
     }
 

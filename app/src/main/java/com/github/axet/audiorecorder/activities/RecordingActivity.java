@@ -152,8 +152,6 @@ public class RecordingActivity extends AppCompatThemeActivity {
         Intent i = new Intent(context, RecordingActivity.class);
         if (pause)
             i.setAction(RecordingActivity.START_PAUSE);
-        i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        i.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
         context.startActivity(i);
     }
 
