@@ -69,8 +69,7 @@ public class MainActivity extends AppCompatThemeActivity {
     EncodingDialog encoding;
 
     public static void startActivity(Context context) {
-        Intent i = new Intent(context, MainActivity.class);
-        context.startActivity(i);
+        context.startActivity(new Intent(context, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
     }
 
     public static class SpeedInfo extends com.github.axet.wget.SpeedInfo {
@@ -533,7 +532,7 @@ public class MainActivity extends AppCompatThemeActivity {
 
         switch (item.getItemId()) {
             case R.id.action_settings:
-                startActivity(new Intent(this, SettingsActivity.class));
+                SettingsActivity.startActivity(this);
                 return true;
             case R.id.action_about:
                 AboutPreferenceCompat.showDialog(this, R.raw.about);

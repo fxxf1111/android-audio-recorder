@@ -46,6 +46,10 @@ public class SettingsActivity extends AppCompatSettingsThemeActivity implements 
 
     public static String[] PREMS = new String[]{Manifest.permission.READ_PHONE_STATE};
 
+    public static void startActivity(Context context) {
+        context.startActivity(new Intent(context, SettingsActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+    }
+
     @SuppressWarnings("unchecked")
     public static <T> T[] removeElement(Class<T> c, T[] aa, int i) {
         List<T> ll = Arrays.asList(aa);
