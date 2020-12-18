@@ -73,19 +73,7 @@ public class SettingsActivity extends AppCompatSettingsThemeActivity implements 
         super.onCreate(savedInstanceState);
         storage = new Storage(this);
         setupActionBar();
-        getSupportFragmentManager().beginTransaction().replace(android.R.id.content, new GeneralPreferenceFragment()).commit();
-    }
-
-    /**
-     * Set up the {@link android.app.ActionBar}, if the API is available.
-     */
-    private void setupActionBar() {
-        ActionBar actionBar = getSupportActionBar();
-        if (actionBar != null) {
-            // Show the Up button in the action bar.
-            actionBar.setDisplayHomeAsUpEnabled(true);
-//            actionBar.setBackgroundDrawable(new ColorDrawable(AudioApplication.getActionbarColor(this)));
-        }
+        showSettingsFragment(new GeneralPreferenceFragment());
     }
 
     @Override
