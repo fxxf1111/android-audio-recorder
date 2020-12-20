@@ -8,3 +8,7 @@
 /captures
 android-library
 app/src/main/assets/*.dex
+/gradlew
+/.idea/*
+/gradle/*
+/gradlew.bat
