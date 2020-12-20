@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Audio Recorder</string>
+    <string name="app_name">录音</string>
 
     <string-array name="sample_rate_text">
         <item>48 kHz</item>

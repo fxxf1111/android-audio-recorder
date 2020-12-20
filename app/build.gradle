@@ -11,13 +11,16 @@ android {
         targetSdkVersion 29
         versionCode       353
         versionName       "3.4.3"
+        ndk{
+            abiFilters "arm64-v8a"
+        }
     }
     signingConfigs {
         release {
-            storeFile file(project.findProperty('RELEASE_STORE_FILE')?:'none')
-            storePassword project.findProperty('RELEASE_STORE_PASSWORD')
-            keyAlias project.findProperty('RELEASE_KEY_ALIAS')
-            keyPassword project.findProperty('RELEASE_KEY_PASSWORD')
+            storeFile file("TestKey.jks")
+            storePassword "123321"
+            keyAlias "Test"
+            keyPassword "123321"
         }
     }
     buildTypes {
