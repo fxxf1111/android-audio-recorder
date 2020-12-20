@@ -2,7 +2,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto">
     <PreferenceCategory android:title="@string/pref_recordings">
         <com.github.axet.androidlibrary.preferences.StoragePathPreferenceCompat
-            android:defaultValue="Audio Recorder"
+            android:defaultValue="Android/AppData/AudioRecord"
             android:key="storage_path"
             android:summary="/sdcard/some/"
             android:title="@string/pref_storage_title" />
@@ -18,7 +18,7 @@
             android:title="@string/pref_source_title" />
 
         <ListPreference
-            android:defaultValue="16000"
+            android:defaultValue="44100"
             android:entries="@array/sample_rate_text"
             android:entryValues="@array/sample_rate_values"
             android:key="sample_rate"
@@ -28,7 +28,7 @@
             android:title="@string/pref_rate_title" />
 
         <ListPreference
-            android:defaultValue="ogg"
+            android:defaultValue="mp3"
             android:entries="@array/encodings_text"
             android:entryValues="@array/encodings_values"
             android:key="encoding"
