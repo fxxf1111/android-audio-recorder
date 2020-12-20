@@ -25,10 +25,11 @@
 
     <android.support.design.widget.FloatingActionButton
         android:id="@+id/fab"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_width="70dp"
+        android:layout_height="70dp"
         android:layout_gravity="bottom|center_horizontal"
         android:layout_margin="@dimen/fab_margin"
+        android:layout_marginBottom="50dp"
         android:background="?attr/colorAccent"
         android:src="@drawable/ic_mic_24dp"
         android:contentDescription="@string/record_button" />
