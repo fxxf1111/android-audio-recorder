@@ -20,7 +20,7 @@
         android:padding="2dp"
         android:text="32G free ~ 3 hours left" />
 
-    <include layout="@layout/toolbar" />
+<!--    <include layout="@layout/toolbar" />-->
 
     <FrameLayout
         android:id="@+id/empty_list"

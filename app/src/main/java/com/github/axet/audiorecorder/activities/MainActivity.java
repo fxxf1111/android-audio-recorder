@@ -457,7 +457,7 @@ public class MainActivity extends AppCompatThemeActivity {
         list.setAdapter(recordings.empty);
         list.setLayoutManager(new LinearLayoutManager(this));
         list.addItemDecoration(new DividerItemDecoration(this, DividerItemDecoration.VERTICAL));
-        recordings.setToolbar((ViewGroup) findViewById(R.id.recording_toolbar));
+//        recordings.setToolbar((ViewGroup) findViewById(R.id.recording_toolbar));
 
         receiver = new ScreenReceiver() {
             @Override
